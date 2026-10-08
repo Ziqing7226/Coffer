@@ -1,0 +1,10 @@
+# Build outputs
+/coffer
+/git-remote-coffer
+/bin/
+/dist/
+*.test
+
+# OS noise
+.DS_Store
+Thumbs.db
