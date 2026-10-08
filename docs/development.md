@@ -12,8 +12,10 @@ code follows in the phases below. Phase scope is fixed; dates are not.
 - **Dependencies stay minimal**: stdlib plus `golang.org/x/crypto` for the
   MVP; a CLI framework only if stdlib `flag` genuinely hurts.
 - **git is the only runtime dependency** (unmodified). The helper shells out
-  to `git index-pack` / `git show-index` for pack inventory rather than
-  reimplementing pack parsing.
+  to git plumbing to move and inventory packs — `pack-objects --revs` to
+  build packs in the caller repository on push, `index-pack --stdin` to
+  import objects on fetch, `show-index` for inventory — rather than
+  reimplementing pack handling.
 
 ## Repository layout (planned)
 

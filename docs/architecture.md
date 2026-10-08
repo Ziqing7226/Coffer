@@ -71,7 +71,7 @@ Two alternatives were rejected deliberately:
 | `git-remote-coffer` | the remote helper; implements the git remote-helper protocol (`list`, `fetch`, `push`) |
 | `coffer` | lifecycle CLI: `init`, `status`, `rekey`, `gc`, `fsck` |
 | vault store | the on-disk format, specified normatively in [format-spec.md](format-spec.md) |
-| pack glue | thin wrappers around git plumbing (`git index-pack`, `git show-index`) to inventory packs without reimplementing pack parsing |
+| pack glue | thin wrappers around git plumbing (`pack-objects`, `git index-pack`, `git show-index`) to move and inventory packs without reimplementing pack handling |
 
 ## Deployment model
 
@@ -94,29 +94,39 @@ The software lives on the **host**; the data lives on the **medium**:
 
 ### Push
 
+Verified against git's `transport-helper.c` in the Phase 0 spike: **git
+never transfers a packfile to a `push`-capability helper.** The helper
+receives only ref-update commands and is responsible for reading the
+caller's object store itself (it inherits `GIT_DIR`).
+
 ```mermaid
 sequenceDiagram
     participant G as git
     participant H as git-remote-coffer
     participant V as vault (external disk)
-    G->>H: list refs
+    G->>H: list for-push
     H->>V: read newest manifest (decrypt)
     H-->>G: advertised refs
-    G->>H: push refs + packfile (missing objects only)
-    H->>H: index-pack (inventory the objects)
+    G->>H: push ref updates (commands only, no pack)
+    H->>H: pack-objects --revs in the caller repository (new tips minus advertised tips)
     H->>V: write encrypted chunks (immutable files)
     H->>V: commit new manifest (atomic rename)
-    H-->>G: push status
+    H-->>G: ok/error per ref
 ```
 
-Accuracy of advertised refs matters twice: it lets git compute a minimal
-pack (so repeated pushes stay incremental), and it makes `git fetch` and
-`git clone` correct.
+Accuracy of advertised refs matters twice: git decides what to push by
+comparing local refs against them, and the helper uses them as
+`^exclusions` for `pack-objects --revs`, so each push stores only the
+missing objects.
 
 ### Fetch
 
-The mirror image: the helper decrypts the chunk files containing the
-requested objects, reassembles the pack, and streams it to git.
+The mirror image, with the data direction reversed — and again no pack
+crosses the helper protocol. The helper decrypts and reassembles the
+packs containing the requested objects and imports them **into the
+caller's object database** by piping them into `git index-pack --stdin`
+in the caller's repository (inherited `GIT_DIR` and working directory),
+then answers the fetch batch with a blank line.
 
 ## Cryptographic design (summary)
 

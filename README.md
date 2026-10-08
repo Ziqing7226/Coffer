@@ -83,10 +83,12 @@ flowchart LR
 ```
 
 Git delegates transport for unknown URL schemes to a helper binary
-(`coffer::…` makes git invoke `git-remote-coffer`). The helper receives packs
-from git, encrypts them, and stores them in the vault directory. Git never
-notices the difference — which is why every git client stays compatible. The
-design and its rationale are in [docs/architecture.md](docs/architecture.md);
+(`coffer::…` makes git invoke `git-remote-coffer`). The helper reads the
+pushed objects straight from your repository, encrypts them, and stores
+them in the vault directory; on fetch it does the reverse, importing
+decrypted objects back into your repository. Git never notices the
+difference — which is why every git client stays compatible. The design
+and its rationale are in [docs/architecture.md](docs/architecture.md);
 the on-disk layout is specified normatively in
 [docs/format-spec.md](docs/format-spec.md).
 
