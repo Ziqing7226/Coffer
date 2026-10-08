@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="status: specification phase" src="https://img.shields.io/badge/status-specification%20phase-d4a017">
+  <img alt="status: phase 1 — MVP" src="https://img.shields.io/badge/status-phase%201%20%E2%80%94%20MVP-d4a017">
   &nbsp;
   <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-6e7681">
   &nbsp;
@@ -26,9 +26,11 @@ the bytes that reach the disk are ciphertext. Whoever finds the drive finds
 random-looking files; with the passphrase, the complete repository — every
 branch, tag, and commit — can be reconstructed from the vault alone.
 
-**Coffer is in the specification phase.** The design is complete and frozen
-enough to build against; no code has been released yet. See the
-[roadmap](#roadmap).
+**Coffer implements vault format v1**: the encrypted store, the remote
+helper, and the `coffer` CLI are working and covered by tests that drive
+real git on Linux and Windows. Hardening, key management, and packaging are
+on the [roadmap](#roadmap); until v1.0, treat vaults as not yet long-term
+stable.
 
 ## Why
 
@@ -48,7 +50,7 @@ enough to build against; no code has been released yet. See the
 
 ## Target interface
 
-What using Coffer is designed to feel like (planned CLI, in development):
+Everyday use, exactly as implemented today:
 
 ```console
 $ coffer init /mnt/usb/myproject.coffer
@@ -66,12 +68,14 @@ To coffer::/mnt/usb/myproject.coffer
 On Windows: `git remote add origin coffer::D:\backups\myproject.coffer`.
 
 From then on, `git pull`, `git fetch`, `git clone`, and VSCode's Sync button
-all work against the vault with no further configuration. The only
-requirement is a stock git — validation floor 2.30, where the helper
-`object-format` capability (SHA-256 repository support) first appeared.
-Release notes list the exact git versions each release was tested against.
-Passphrases are requested through git's own credential flow, so prompts
-appear natively in the terminal or in VSCode.
+all work against the vault with no further configuration. You need a stock
+git — validation floor 2.30, where the helper `object-format` capability
+(SHA-256 repository support) first appeared — and the Coffer binaries on
+PATH. Release packaging arrives in Phase 4; until then, build from source
+with Go (`go build ./cmd/coffer ./cmd/git-remote-coffer`). Release notes
+list the exact git versions each release was tested against. Passphrases are
+requested through git's own credential flow, so prompts appear natively in
+the terminal or in VSCode.
 
 ## How it works
 
@@ -118,9 +122,9 @@ zero-dependency" quadrant is empty.
 
 ## Roadmap
 
-- [x] **Specification** — architecture, vault format v1, threat model (current state)
-- [ ] **Phase 0 — Spike** — prove the helper protocol and credential flow end-to-end on Linux and Windows
-- [ ] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux and Windows
+- [x] **Specification** — architecture, vault format v1, threat model
+- [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
+- [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux and Windows
 - [ ] **Phase 2 — Hardening** — progress reporting, actionable errors, VSCode validation pass
 - [ ] **Phase 3 — Key management** — multiple key slots, `rekey`, `coffer gc` / `coffer fsck`
 - [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
