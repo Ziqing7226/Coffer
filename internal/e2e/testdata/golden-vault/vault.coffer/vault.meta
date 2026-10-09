@@ -1,0 +1,22 @@
+{
+  "format_version": 1,
+  "id": "4d9f7663ab5e581438dc8a3d235c449c",
+  "created": "2026-10-09T12:54:19.100740317Z",
+  "slots": [
+    {
+      "id": 0,
+      "kdf": {
+        "algo": "argon2id",
+        "m": 65536,
+        "t": 3,
+        "p": 4,
+        "salt": "pqDIEjWmj3CetWVHRRgNvA=="
+      },
+      "aead": {
+        "algo": "xchacha20-poly1305",
+        "nonce": "G+ZJsLL7hnkEHh/7z4uwZSoZaN1YG0Lh"
+      },
+      "dek": "WlHHefgCk9FeszciNXLO/41VpZb2utn0wi1NfE95BG2rGAj/oF7oedVP62QW1Lwm"
+    }
+  ]
+}

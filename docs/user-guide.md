@@ -101,8 +101,10 @@ unchanged. The on-disk format is specified and frozen in
 | `coffer key add <dir> [-keyfile <path>]` | add a passphrase slot, optionally requiring a key file as a second factor |
 | `coffer key remove <dir> <id>` | remove a key slot (never the last one) |
 | `coffer key list <dir>` | list key slots (no passphrase needed) |
-| `coffer gc <dir>` | remove orphaned objects, temp files, old manifest generations |
+| `coffer gc [--dry-run] <dir>` | remove orphaned objects, temp files, old manifest generations (`--dry-run` reports only) |
 | `coffer fsck <dir>` | verify every structure of the vault |
+| `coffer doctor <dir>` | check the environment and the vault, and report |
+| `coffer export-bundle <dir> <file>` | export the vault as a plain git bundle |
 | `coffer version` | print the build version |
 
 Passphrase prompts read from the terminal (hidden); when stdin is not a
@@ -129,6 +131,17 @@ medium, `git clone coffer::<path>`, enter the passphrase. Keeping a copy
 of the release archive next to the vault is a convenience for offline
 bootstrapping, never a dependency.
 
+## Leaving, and being sure you can
+
+`coffer export-bundle <vault> <file.bundle>` decrypts the vault into a
+standard git bundle that stock git alone can clone or verify — the exit
+path needs neither Coffer nor the vault format. The bundle file itself
+is plaintext, so store it accordingly. `coffer doctor <vault>` gives a
+one-shot health report of the environment and the vault; boundaries of
+what is supported (LFS content, submodules, sha256, shallow clones,
+FAT32 file-size caps) are listed in
+[support-matrix.md](support-matrix.md).
+
 ## Maintenance
 
 - `coffer fsck` verifies every AEAD seal, the manifest chain, and every
@@ -136,7 +149,11 @@ bootstrapping, never a dependency.
   first divergence per structure and never attempts recovery.
 - `coffer gc` reclaims space from interrupted pushes (orphaned object
   files), leftover temp files, and old manifest generations. It refuses to
-  delete anything if any manifest generation fails to decrypt.
+  delete anything if any manifest generation fails to decrypt;
+  `--dry-run` reports without deleting. One honest caveat: the vault is a
+  remote, not an immutable archive — once you delete a ref and run gc,
+  objects only that ref referenced are gone from the vault (they live on
+  wherever else you pushed them).
 - Both commands serialize with writers through the vault lock; concurrent
   pushes queue safely rather than corrupting.
 

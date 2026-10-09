@@ -14,6 +14,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -188,4 +189,56 @@ func TestWriteFormatVectors(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("wrote %s", path)
+}
+
+// TestTransposedChunksFail pins the AAD position binding: swapping two
+// whole chunk records inside an object file must fail authentication —
+// both chunks are individually valid, but each is sealed to its position.
+func TestTransposedChunksFail(t *testing.T) {
+	dek, err := RandomBytes(DEKSize)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk := func(i int) []byte {
+		out := make([]byte, 1024)
+		out[0] = byte(i)
+		return out
+	}
+	nonceA, _ := RandomBytes(NonceSize)
+	nonceB, _ := RandomBytes(NonceSize)
+	specific := func(k int) string { return "vault0/file0/" + strconv.Itoa(k) }
+
+	var plain strings.Builder
+	plain.Write(chunk(0))
+	plain.Write(chunk(1))
+	var buf bytes.Buffer
+	if err := writeChunked(&buf, strings.NewReader(plain.String()), dek, specific,
+		map[int][]byte{0: nonceA, 1: nonceB}); err != nil {
+		t.Fatal(err)
+	}
+	frame := buf.Bytes()
+	frameLen := len(frame) / 2
+
+	// Round-trip first: the untouched framing reads back.
+	if _, err := io.Copy(io.Discard, mustReadChunked(t, bytes.NewReader(frame), 2048, dek, specific)); err != nil {
+		t.Fatalf("pristine framing failed: %v", err)
+	}
+
+	// Swap the two chunk records: every record authenticates under its
+	// own nonce, but AAD binds the position, so the transposition must
+	// fail instead of silently yielding reordered plaintext.
+	swapped := append(append([]byte{}, frame[frameLen:]...), frame[:frameLen]...)
+	_, err = io.Copy(io.Discard, mustReadChunked(t, bytes.NewReader(swapped), 2048, dek, specific))
+	if err == nil {
+		t.Fatal("transposed chunks decrypted without error — position binding broken")
+	}
+}
+
+func mustReadChunked(t *testing.T, r io.Reader, size int64, dek []byte, specific func(int) string) io.Reader {
+	t.Helper()
+	rd, err := ReadChunked(r, size, dek, specific)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rd
 }

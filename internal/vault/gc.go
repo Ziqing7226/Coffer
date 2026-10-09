@@ -27,6 +27,15 @@ type GCReport struct {
 // could commit an object between the scan and the sweep, and the sweep
 // would delete the just-committed file.
 func GC(dir, passphrase string) (*GCReport, error) {
+	return gc(dir, passphrase, false)
+}
+
+// GCDryRun reports what GC would remove without deleting anything.
+func GCDryRun(dir, passphrase string) (*GCReport, error) {
+	return gc(dir, passphrase, true)
+}
+
+func gc(dir, passphrase string, dryRun bool) (*GCReport, error) {
 	s, err := Open(dir, passphrase)
 	if err != nil {
 		return nil, err
@@ -68,14 +77,20 @@ func GC(dir, passphrase string) (*GCReport, error) {
 			continue
 		}
 		if strings.HasSuffix(name, ".tmp") {
-			if os.Remove(filepath.Join(dir, objDirName, name)) == nil {
+			if dryRun {
+				rep.RemovedTmp = append(rep.RemovedTmp, "obj/"+name)
+				rep.BytesFreed += info.Size()
+			} else if os.Remove(filepath.Join(dir, objDirName, name)) == nil {
 				rep.RemovedTmp = append(rep.RemovedTmp, "obj/"+name)
 				rep.BytesFreed += info.Size()
 			}
 			continue
 		}
 		if !referenced[name] {
-			if os.Remove(filepath.Join(dir, objDirName, name)) == nil {
+			if dryRun {
+				rep.RemovedObjects = append(rep.RemovedObjects, name)
+				rep.BytesFreed += info.Size()
+			} else if os.Remove(filepath.Join(dir, objDirName, name)) == nil {
 				rep.RemovedObjects = append(rep.RemovedObjects, name)
 				rep.BytesFreed += info.Size()
 			}
@@ -96,7 +111,10 @@ func GC(dir, passphrase string) (*GCReport, error) {
 		if ierr != nil {
 			continue
 		}
-		if os.Remove(filepath.Join(dir, name)) == nil {
+		if dryRun {
+			rep.RemovedTmp = append(rep.RemovedTmp, name)
+			rep.BytesFreed += info.Size()
+		} else if os.Remove(filepath.Join(dir, name)) == nil {
 			rep.RemovedTmp = append(rep.RemovedTmp, name)
 			rep.BytesFreed += info.Size()
 		}
@@ -105,7 +123,9 @@ func GC(dir, passphrase string) (*GCReport, error) {
 	// Re-enforce the generation bound (commits already prune; a vault
 	// assembled from copies may carry more).
 	before := manifestGenerations(dir)
-	s.pruneGenerations(s.manifestNum, s.manifest.Generations.Kept)
+	if !dryRun {
+		s.pruneGenerations(s.manifestNum, s.manifest.Generations.Kept)
+	}
 	after := map[int]bool{}
 	for _, n := range manifestGenerations(dir) {
 		after[n] = true

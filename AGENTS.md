@@ -13,7 +13,8 @@ first-class; VSCode works because git works.
 docs/test-vectors.json), the `git-remote-coffer` helper (progress
 milestones, writer lock, `--atomic`/`--force-with-lease`, credential
 approval, HEAD fallback for non-main repositories), the `coffer` CLI
-(init, status, key add/remove/list, rekey, gc, fsck, version), CI on
+(init, status, key add/remove/list, rekey, gc --dry-run, fsck, doctor,
+export-bundle, version), CI on
 Linux, Windows, and macOS, the security review complete, release
 workflow (six platforms) and packaging manifests under `packaging/`,
 and the user guide. Store submissions land with stable 1.0.0.

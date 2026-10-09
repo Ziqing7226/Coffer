@@ -158,6 +158,32 @@ run in CI.
       needed; a FAT loop-device variant would need privileges and is
       optional.
 
+## Toward 1.0.0 (adopted work plan)
+
+Priorities absorbed from an outside review, cross-checked against what
+already shipped:
+
+- [x] Independent security review — done (three cold reviewers; findings
+      above, all fixed).
+- [x] Disk-full robustness — done (user-namespace tmpfs suite).
+- [x] Security policy, checksums, exit path (`export-bundle`), `doctor`,
+      gc `--dry-run`, LFS warning, support matrix, "What Coffer is not",
+      changelog.
+- [ ] Release trust chain: cosign keyless signing, SBOM, and SLSA
+      provenance on release artifacts; pinned toolchain and
+      reproducibility flags.
+- [ ] Golden vault fixture pinning cross-version readability (created by
+      v1.0.0-pre, read forever).
+- [ ] Corruption matrix expansion: truncation, generation rollback,
+      chunk transposition.
+- [ ] CI hardening: `go test -race`, govulncheck, a git 2.30 container
+      leg, parser fuzz seeds.
+- [ ] rc.1 release, then 1.0.0, then store submissions with real hashes.
+
+Deliberately declined: per-run CI performance budgets (flaky), a formal
+ADR directory (decisions live in the spec and architecture notes), and
+a comparison page (replaced by the neutral "Choosing an approach").
+
 ## Testing strategy
 
 - **Golden protocol tests** drive real `git` end-to-end: create a scratch
