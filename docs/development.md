@@ -41,8 +41,11 @@ Prove the risky unknowns with throwaway code.
       (no crypto yet).
 - [x] Passphrase prompt observed through `git credential fill` — terminal
       prompt and GIT_ASKPASS paths, on Linux (branch `phase-0`).
-- [ ] The same prompt observed inside the VSCode UI, and on Windows and
-      macOS.
+- [x] The same prompt observed inside the VSCode UI, and on Windows and
+      macOS — covered with stronger evidence later: the golden e2e suite
+      drives the askpass path on all three CI operating systems, and the
+      Phase 2 checklist records the by-hand VSCode pass (native input box,
+      wrong passphrase, cancel).
 - [ ] Windows: helper discovery from VSCode's bundled git confirmed;
       binary stdio confirmed free of CRLF issues.
 - [ ] Validation floor confirmed against a pinned git 2.30 build
