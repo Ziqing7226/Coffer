@@ -169,15 +169,17 @@ already shipped:
 - [x] Security policy, checksums, exit path (`export-bundle`), `doctor`,
       gc `--dry-run`, LFS warning, support matrix, "What Coffer is not",
       changelog.
-- [ ] Release trust chain: cosign keyless signing, SBOM, and SLSA
-      provenance on release artifacts; pinned toolchain and
-      reproducibility flags.
+- [x] Release trust chain: cosign keyless signing (Sigstore OIDC, no
+      stored secrets), SBOM (spdx-json), GitHub build attestations on
+      every archive, toolchain pinned via go.mod, CGO disabled and
+      trimpath for reproducible archives.
 - [ ] Golden vault fixture pinning cross-version readability (created by
       v1.0.0-pre, read forever).
 - [ ] Corruption matrix expansion: truncation, generation rollback,
       chunk transposition.
-- [ ] CI hardening: `go test -race`, govulncheck, a git 2.30 container
-      leg, parser fuzz seeds.
+- [x] CI hardening: `go test -race` (Linux leg), govulncheck, a git
+      2.30 container leg running the full suite, and fuzz seeds for the
+      vault.meta, manifest, and chunk-framing parsers.
 - [ ] rc.1 release, then 1.0.0, then store submissions with real hashes.
 
 Deliberately declined: per-run CI performance budgets (flaky), a formal

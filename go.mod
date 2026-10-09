@@ -8,3 +8,5 @@ require (
 )
 
 require golang.org/x/sys v0.48.0 // indirect
+
+toolchain go1.27.1

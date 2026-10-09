@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: go.mod
       - name: Vet
         shell: bash
         run: |
@@ -40,6 +40,19 @@ jobs:
             } | sed 's/^/::error::TEST: /'
           fi
           exit "$status"
+      - name: Test with the race detector
+        # The race detector needs a C toolchain everywhere but Linux;
+        # one fully-instrumented leg catches what the fast legs miss.
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: go test -race ./... -count=1
+      - name: Vulnerability scan (govulncheck)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
       - name: Cross-builds
         shell: bash
         run: |
@@ -49,3 +62,33 @@ jobs:
           GOOS=linux GOARCH=arm64 go build ./...
           GOOS=darwin GOARCH=amd64 go build ./...
           GOOS=darwin GOARCH=arm64 go build ./...
+
+  # The supported git floor is 2.30 (the first release with the helper
+  # object-format capability) — this leg runs the whole suite against it,
+  # so the claim is tested, not asserted.
+  floor-git-230:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.27-bullseye
+    steps:
+      - name: Install git 2.30 (Debian bullseye)
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git ca-certificates
+          git --version
+          case "$(git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
+      - uses: actions/checkout@v5
+      - name: Full suite against git 2.30
+        shell: bash
+        run: |
+          set +e
+          go test ./... -count=1 > /tmp/floor.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/floor.log || true
+          exit "$status"
+      - name: Cross-builds
+        shell: bash
+        run: go build ./...

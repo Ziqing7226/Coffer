@@ -2,6 +2,15 @@
 
 ## Unreleased (toward 1.0.0)
 
+- Release trust chain: archives are built with the pinned toolchain
+  (CGO disabled, trimpath), checksummed, the checksums signed keylessly
+  (Sigstore OIDC via cosign — no stored secrets), an SBOM (spdx-json)
+  attached, and GitHub build attestations recorded for every archive.
+- CI hardening: race-detector and govulncheck legs, fuzz seeds for the
+  untrusted-input parsers (vault.meta, manifest records, chunk framing),
+  and a dedicated leg running the full suite against git 2.30 — the
+  supported floor is now tested, not asserted.
+
 - `gitcoffer export-bundle <vault> <file>` — the guaranteed exit path: a
   plain, stock-git-readable bundle of everything in the vault.
 - `gitcoffer doctor <vault>` — environment and vault health check (git
