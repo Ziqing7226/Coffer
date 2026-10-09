@@ -81,6 +81,24 @@ Argon2id work or aim the reader at endless files. A planted lock dated
 in the future blocks writes at most one staleness window, never until
 its stated date.
 
+## What Coffer is not
+
+One page, plainly:
+
+- **Not host endpoint protection.** Nothing protects a machine that is
+  compromised while the vault is open.
+- **Not a metadata-hiding tool.** File count, approximate sizes, and
+  timestamps are visible to the medium's holder.
+- **Not cloud sync.** There is no network code at all.
+- **Not a Git LFS or annex backup.** Content that lives outside the git
+  object store is outside the vault.
+- **Not anti-forensics.** No deniability, no hidden volumes.
+- **Not a forgotten-passphrase recovery tool.** There is no recovery, by
+  design — a key file is a second factor, never a rescue.
+- **Not an immutable archive.** Deleting a ref and running `gc` removes
+  objects nothing references anymore; the vault mirrors the repository,
+  it does not preserve every historical state of it.
+
 ## Cryptographic assumptions
 
 Standard assumptions about Argon2id, XChaCha20-Poly1305, and the OS CSPRNG;

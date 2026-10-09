@@ -125,8 +125,10 @@ only git, Coffer, and the passphrase are needed:
 | `coffer status <dir>` | inspect: format, slots, refs, packs |
 | `coffer rekey <dir>` | change the passphrase (data is never re-encrypted) |
 | `coffer key add / remove / list` | manage key slots; optional key-file second factor |
-| `coffer gc <dir>` | reclaim space from interrupted pushes and old generations |
+| `coffer gc [--dry-run] <dir>` | reclaim space from interrupted pushes and old generations |
 | `coffer fsck <dir>` | verify every structure of the vault |
+| `coffer doctor <dir>` | check the environment and the vault |
+| `coffer export-bundle <dir> <file>` | export the vault as a plain git bundle — the exit path |
 | `coffer version` | print the build version |
 
 Full walkthrough — keys and recovery, maintenance, troubleshooting:
@@ -174,6 +176,7 @@ grateful for the ground it broke.
 | [User guide](docs/user-guide.md) | install, everyday use, keys and recovery, maintenance |
 | [Architecture](docs/architecture.md) | design decisions, components, protocol flows |
 | [Vault format specification](docs/format-spec.md) | normative on-disk format — build against this |
+| [Support matrix](docs/support-matrix.md) | tested configurations and explicit boundaries |
 | [Threat model](docs/threat-model.md) | what Coffer does and does not protect |
 | [Development plan](docs/development.md) | stack, phases, testing strategy, conventions |
 | [Contributing](CONTRIBUTING.md) | repository rules and how to contribute |
