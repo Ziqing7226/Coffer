@@ -86,3 +86,55 @@ func TestGCRefusesBrokenGeneration(t *testing.T) {
 		t.Fatalf("gc did not refuse a broken vault: %v", err)
 	}
 }
+
+func TestGCDryRunReportsPrunableGenerations(t *testing.T) {
+	dir := t.TempDir()
+	storeWithObject(t, dir, "pass")
+	s := openStore(t, dir, "pass")
+	m := s.Manifest()
+	m.Refs["refs/heads/main"] = RefVal{OID: strings.Repeat("a", 40)}
+	if err := s.Commit(m); err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate drift: a generation beyond the kept bound left on disk
+	// (e.g. assembled from copies). Dry-run must report it without
+	// deleting; a real pass must delete it.
+	pristine := filepath.Join(dir, "manifest.2")
+	drifted := filepath.Join(dir, "manifest.1")
+	data, err := os.ReadFile(pristine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(drifted, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	dry, err := GCDryRun(dir, "pass")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dry.PrunedGenerations) != 1 || dry.PrunedGenerations[0] != 1 {
+		t.Fatalf("dry-run prunable report = %v, want [1]", dry.PrunedGenerations)
+	}
+	if _, err := os.Stat(drifted); err != nil {
+		t.Fatal("dry-run deleted the drifted generation")
+	}
+
+	rep, err := GC(dir, "pass")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.PrunedGenerations) != 1 || rep.PrunedGenerations[0] != 1 {
+		t.Fatalf("real pass prunable report = %v, want [1]", rep.PrunedGenerations)
+	}
+}
+
+func openStore(t *testing.T, dir, pass string) *Store {
+	t.Helper()
+	s, err := Open(dir, pass)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
