@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "phase-*"]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Vet
+        run: go vet ./...
+      - name: Test (unit + golden e2e against real git)
+        run: go test ./... -v
+      - name: Cross-builds
+        shell: bash
+        run: |
+          go build ./...
+          GOOS=windows GOARCH=amd64 go build ./...
+          GOOS=linux GOARCH=amd64 go build ./...
+          GOOS=linux GOARCH=arm64 go build ./...

@@ -9,9 +9,10 @@ that lets unmodified git push to and clone from a passphrase-protected vault
 directory on a secondary or removable disk. Linux and Windows are
 first-class; VSCode works because git works.
 
-**Current state: specification phase.** Documentation only — no code yet.
-The most useful contributions right now sharpen the specification;
-implementation begins with Phase 0 (see docs/development.md).
+**Current state: Phase 1 (MVP) implemented** — vault format v1, the
+`git-remote-coffer` helper, the `coffer` CLI, and CI on Linux and Windows.
+docs/development.md tracks phase status and what remains (hardening, key
+management, packaging).
 
 ## Iron Rule — English only
 
@@ -39,5 +40,7 @@ implementation begins with Phase 0 (see docs/development.md).
   `D:\backups\…`).
 - Follow Conventional Commits; one logical change per commit.
 - Do not renumber or move docs/ files; link by relative path.
-- There are no build or test commands yet — code arrives in Phase 0. Do not
-  add CI or README claims that suggest otherwise.
+- Build and test: `go build ./...`, `go vet ./...`, `go test ./...`. The
+  e2e package drives real git and builds the binaries itself; git must be
+  on PATH. Fault injection uses the COFFER_CRASH environment variable
+  (internal/vault crash points).

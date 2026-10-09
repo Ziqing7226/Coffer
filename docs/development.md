@@ -35,11 +35,12 @@ docs/                   specifications and guides
 
 Prove the risky unknowns with throwaway code.
 
-- [ ] Minimal `git-remote-coffer` shim: git discovers it on PATH, `list`
+- [x] Minimal `git-remote-coffer` shim: git discovers it on PATH, `list`
       works against a plaintext directory, a push round-trips locally
       (no crypto yet).
-- [ ] Passphrase prompt observed through `git credential fill` — in a
-      terminal and inside VSCode, on Linux and on Windows.
+- [x] Passphrase prompt observed through `git credential fill` — terminal
+      prompt and GIT_ASKPASS paths, on Linux (branch `phase-0`).
+- [ ] The same prompt observed inside the VSCode UI, and on Windows.
 - [ ] Windows: helper discovery from VSCode's bundled git confirmed;
       binary stdio confirmed free of CRLF issues.
 - [ ] Validation floor confirmed against a pinned git 2.30 build
@@ -50,17 +51,18 @@ operating systems.
 
 ### Phase 1 — MVP (weeks)
 
-- [ ] Format v1 fully implemented: key slots, manifest, chunked object AEAD.
-- [ ] Helper capabilities: `list`, `fetch`, `push`, `option`,
+- [x] Format v1 fully implemented: key slots, manifest, chunked object AEAD.
+- [x] Helper capabilities: `list`, `fetch`, `push`, `option`,
       `object-format`.
-- [ ] `coffer init` and `coffer status`.
-- [ ] CI (GitHub Actions): unit tests plus golden protocol tests on
+- [x] `coffer init` and `coffer status`.
+- [x] CI (GitHub Actions): unit tests plus golden protocol tests on
       ubuntu-latest and windows-latest, driving real git clone/push/fetch
       against a vault.
 
 Exit criteria: full clone → push → re-clone round-trip on both OSes;
 `kill -9` at any write stage leaves a valid vault; a flipped byte in any
-structure produces a precise error, never a panic.
+structure produces a precise error, never a panic. All three are enforced
+by the e2e suite (`internal/e2e`); the Windows leg runs in CI.
 
 ### Phase 2 — Hardening
 
