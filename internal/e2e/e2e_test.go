@@ -491,6 +491,29 @@ func TestAtomicPushAndForceWithLease(t *testing.T) {
 	}
 }
 
+// TestCloneNonMainBranchChecksOut verifies the HEAD fallback: a vault whose
+// only branch is neither main nor master must still clone into a checked-out
+// working tree (the alphabetically first branch), not an empty directory.
+func TestCloneNonMainBranchChecksOut(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "branch", "-m", "main", "trunk")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	git(t, src, nil, "push", "-q", "-u", "origin", "trunk")
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	git(t, t.TempDir(), nil, "clone", "-q", vaultURL(vaultDir), clone)
+	if _, err := os.Stat(filepath.Join(clone, "file.txt")); err != nil {
+		t.Fatalf("clone checked out no working tree: %v", err)
+	}
+	if got := strings.TrimSpace(git(t, clone, nil, "branch", "--show-current")); got != "trunk" {
+		t.Fatalf("clone HEAD = %q, want trunk", got)
+	}
+	if rev(t, clone, "HEAD") != rev(t, src, "trunk") {
+		t.Fatal("clone tip mismatch")
+	}
+}
+
 func TestWrongPassphraseRejected(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")

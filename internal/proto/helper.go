@@ -222,9 +222,29 @@ func (s *session) listRefs() error {
 	lines := []string{":object-format sha1"}
 	for _, name := range names {
 		lines = append(lines, m.Refs[name].OID+" "+name)
+	}
+	// Advertise a HEAD symref so clones check out a working tree: main by
+	// convention, master as its fallback, otherwise the alphabetically
+	// first branch — deterministic across clones, so a repository that
+	// used neither name still restores with a checkout instead of an
+	// empty tree.
+	head := ""
+	for _, name := range names {
 		if name == "refs/heads/main" || name == "refs/heads/master" {
-			lines = append(lines, "@"+name+" HEAD")
+			head = name
+			break
 		}
+	}
+	if head == "" {
+		for _, name := range names {
+			if strings.HasPrefix(name, "refs/heads/") {
+				head = name
+				break
+			}
+		}
+	}
+	if head != "" {
+		lines = append(lines, "@"+head+" HEAD")
 	}
 	s.reply(lines...)
 	return nil
