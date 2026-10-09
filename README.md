@@ -143,7 +143,7 @@ zero-dependency" quadrant is empty.
 - [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
 - [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke, VSCode UI pass
 - [x] **Phase 3 — Key management** — multiple key slots, `rekey` without re-encrypting data, optional key-file second factor, `coffer gc` / `coffer fsck`
-- [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
+- [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew) and the user guide (security review complete; format v1 frozen, with published test vectors)
 
 Phases with acceptance criteria: [docs/development.md](docs/development.md).
 

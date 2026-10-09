@@ -1,6 +1,6 @@
 # Vault Format Specification (v1)
 
-Status: **normative for format v1.** The key words MUST, MUST NOT,
+Status: **normative; format v1 is frozen.** The key words MUST, MUST NOT,
 SHOULD, and MAY are to be interpreted as described in RFC 2119. This
 document is the single source of truth for the on-disk format; any change to
 the format requires bumping `format_version`.
@@ -197,6 +197,11 @@ and `obj/` carry meaning.
 
 ## 8. Test vectors
 
-Conformance vectors for the key-slot envelope and chunk framing will be
-published alongside the reference implementation in Phase 1; until then this
-document alone defines correctness.
+[docs/test-vectors.json](test-vectors.json) pins the key-slot envelope, the
+manifest record, and object-chunk framing with fixed inputs — passphrase,
+DEK, Argon2id parameters, salt, and nonces — so any implementation must
+reproduce those exact bytes and must open what they seal. Chunks beyond the
+first follow the same formula with their index in the AAD (§5). The
+reference implementation verifies the vectors in
+`internal/crypto/vectors_test.go` on every test run; regenerate the file
+only through a deliberate spec change, never to make a failing build pass.
