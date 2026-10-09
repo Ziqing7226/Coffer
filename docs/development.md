@@ -129,6 +129,9 @@ run in CI.
       host — now refused via O_NOFOLLOW, regression-tested. Conformance
       test vectors published (docs/test-vectors.json) and re-verified on
       every test run.
+- [ ] Post-1.0.0 hardening candidate: disk-full robustness — exercise
+      every write path on a nearly full (loop-device) medium and assert
+      the same one-consistent-state invariant the crash tests enforce.
 
 ## Testing strategy
 
