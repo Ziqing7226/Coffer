@@ -20,6 +20,13 @@ const ChunkSize = 64 << 20
 // formatted as nonce || ciphertext. specific returns the role-specific AAD
 // id for chunk k.
 func WriteChunked(w io.Writer, plaintext io.Reader, dek []byte, specific func(chunk int) string) error {
+	return writeChunked(w, plaintext, dek, specific, nil)
+}
+
+// writeChunked seals every chunk under a fresh random nonce; nonces, when
+// non-nil, supplies a deterministic nonce per chunk index — the format
+// test vectors pin exact bytes this way.
+func writeChunked(w io.Writer, plaintext io.Reader, dek []byte, specific func(chunk int) string, nonces map[int][]byte) error {
 	aead, err := chacha20poly1305.NewX(dek)
 	if err != nil {
 		return err
@@ -29,7 +36,12 @@ func WriteChunked(w io.Writer, plaintext io.Reader, dek []byte, specific func(ch
 		n, rerr := io.ReadFull(plaintext, buf)
 		if n > 0 {
 			nonce := make([]byte, NonceSize)
-			if _, err := rand.Read(nonce); err != nil {
+			if fixed, ok := nonces[k]; ok {
+				if len(fixed) != NonceSize {
+					return fmt.Errorf("object chunk %d: seal nonce must be %d bytes", k, NonceSize)
+				}
+				copy(nonce, fixed)
+			} else if _, err := rand.Read(nonce); err != nil {
 				return err
 			}
 			if _, err := w.Write(nonce); err != nil {

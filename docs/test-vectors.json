@@ -1,0 +1,29 @@
+{
+  "format_version": 1,
+  "vault_id": "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+  "passphrase": "correct horse battery staple",
+  "dek": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "argon2": {
+    "m": 65536,
+    "t": 3,
+    "p": 4,
+    "salt": "AAECAwQFBgcICQoLDA0ODw=="
+  },
+  "meta_slot": {
+    "slot_id": 0,
+    "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "expected_sealed": "VhBB4e4Z307X5Bkn324v88ND2+ebXE0L7HXiGTX5EntLMEapUvpSYAxr0aXxfDWD"
+  },
+  "manifest": {
+    "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB",
+    "payload": "{\"version\":1,\"refs\":{}}",
+    "expected_record": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABPlar1JLEX50QFf1iGFw3yi8F4E5wmNYu+Bvk5hKMN87rSjlRvdS1"
+  },
+  "obj_chunk": {
+    "file": "deadbeefdeadbeefdeadbeefdeadbeef",
+    "chunk": 0,
+    "nonce": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC",
+    "plaintext": "coffer format v1 test vector payload\n",
+    "expected": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACUi7TYPPQCToR4NqzjcnxREZZjEWUDYYDs1TPRy8PcP9B5Ilyw5UVEba4P0elIBwfvMfx6wg="
+  }
+}
