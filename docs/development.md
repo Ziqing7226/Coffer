@@ -114,8 +114,17 @@ run in CI.
       darwin/amd64, darwin/arm64); scoop, winget, and Homebrew packaging.
 - [ ] User guide pages (quickstart, install, keys and recovery) — written
       together with the code, not before.
-- [ ] Security review of the crypto envelope and error paths; format v1
-      frozen as stable.
+- [x] Security review of the crypto envelope and error paths; format v1
+      frozen as stable. A self-review (independent review welcome before
+      the 1.0 release) covered the KDF/AEAD envelope, AAD bindings and
+      nonce bounds, error and credential paths (passphrases never cross
+      argv or logs), the filesystem attack surface, and every recovery
+      path. One confirmed vulnerability fixed: predictable temp-file names
+      let an attacker with brief write access to the medium plant symlinks
+      turning the next write into an arbitrary-file replacement on the
+      host — now refused via O_NOFOLLOW, regression-tested. Conformance
+      test vectors published (docs/test-vectors.json) and re-verified on
+      every test run.
 
 ## Testing strategy
 

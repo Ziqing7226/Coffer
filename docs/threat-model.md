@@ -52,13 +52,38 @@ and, as importantly, what it does not.
 
 An observer of the medium learns the number of files, their sizes (a
 multiple of the chunk size), and write timestamps — roughly how active and
-how large the repository is. Concealing this through padding or cover
-traffic is deliberately out of scope for v1.
+how large the repository is. Two more items are readable in `vault.meta`
+and the transient writer lock: a second-factor slot records its key
+file's path (potentially a host path revealing a username), and
+`vault.lock` names the writing host while an operation runs (removed at
+its end; a crashed writer's lock persists until the staleness window
+passes). Concealing any of this through padding or cover traffic is
+deliberately out of scope for v1.
+
+## Local filesystem hardening
+
+Temp files inside the vault directory have predictable names
+(`vault.meta.tmp`, `manifest.<n>.tmp`), so an attacker with brief write
+access to the medium could plant symlinks meant to turn the next write
+into an arbitrary-file replacement on the host. Coffer refuses to write
+through planted links on Unix (`O_NOFOLLOW`: the operation fails and the
+symlink's target stays untouched). On Windows, where creating symlinks
+requires developer mode or elevated privileges, the plain create remains
+the baseline.
 
 ## Cryptographic assumptions
 
 Standard assumptions about Argon2id, XChaCha20-Poly1305, and the OS CSPRNG;
 no novel construction is used. Parameter guidance lives in the
-[format specification](format-spec.md). Should a primitive need replacing,
+[format specification](format-spec.md), which also publishes conformance
+test vectors pinning the exact byte layout of every sealed structure.
+Should a primitive need replacing,
 the versioned key-slot design is the migration path: new slots can carry new
 algorithms alongside old ones during transition.
+
+Two design choices worth recording: a second-factor slot's KDF input is the
+passphrase concatenated with the key-file bytes (spec §3) — the
+concatenation is unambiguous in practice because a slot's salt is random,
+so an ambiguous split would still have to reproduce the exact slot; and
+random 192-bit XChaCha20 nonces make nonce collision a non-concern at any
+plausible chunk or manifest count.

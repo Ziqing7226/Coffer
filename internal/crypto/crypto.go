@@ -154,6 +154,19 @@ func AAD(role, specific string) []byte {
 // second-factor slot (the caller assembles the input; the slot records
 // which type it is).
 func SealSlot(id int, secret string, dek []byte, vaultID string, params Argon2Params) (*Slot, error) {
+	nonce, err := RandomBytes(NonceSize)
+	if err != nil {
+		return nil, err
+	}
+	return sealSlot(id, secret, dek, vaultID, params, nonce)
+}
+
+// sealSlot seals with a caller-supplied nonce; the format test vectors
+// (docs/test-vectors.json) pin exact bytes with fixed nonces.
+func sealSlot(id int, secret string, dek []byte, vaultID string, params Argon2Params, nonce []byte) (*Slot, error) {
+	if len(nonce) != NonceSize {
+		return nil, fmt.Errorf("slot %d: seal nonce must be %d bytes", id, NonceSize)
+	}
 	if err := params.validate(); err != nil {
 		return nil, err
 	}
@@ -166,10 +179,6 @@ func SealSlot(id int, secret string, dek []byte, vaultID string, params Argon2Pa
 	kek := deriveKEK(secret, params)
 	aead, err := newAEAD(kek)
 	if err != nil {
-		return nil, err
-	}
-	nonce := make([]byte, NonceSize)
-	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
 	sealed := aead.Seal(nil, nonce, dek, AAD("meta-slot", slotSpecific(vaultID, id)))
@@ -230,12 +239,21 @@ func slotSpecific(vaultID string, id int) string {
 // SealManifest encrypts a manifest payload with the DEK under a fresh nonce.
 // The result is nonce || ciphertext (nonce prepended, per spec §4).
 func SealManifest(dek []byte, vaultID string, payload []byte) ([]byte, error) {
-	aead, err := newAEAD(dek)
+	nonce, err := RandomBytes(NonceSize)
 	if err != nil {
 		return nil, err
 	}
-	nonce := make([]byte, NonceSize)
-	if _, err := rand.Read(nonce); err != nil {
+	return sealManifest(dek, vaultID, payload, nonce)
+}
+
+// sealManifest encrypts with a caller-supplied nonce; the format test
+// vectors pin exact bytes with fixed nonces.
+func sealManifest(dek []byte, vaultID string, payload []byte, nonce []byte) ([]byte, error) {
+	if len(nonce) != NonceSize {
+		return nil, fmt.Errorf("manifest seal nonce must be %d bytes", NonceSize)
+	}
+	aead, err := newAEAD(dek)
+	if err != nil {
 		return nil, err
 	}
 	return append(nonce, aead.Seal(nil, nonce, payload, AAD("manifest", vaultID))...), nil
