@@ -1,6 +1,6 @@
 # Vault Format Specification (v1)
 
-Status: **draft — normative for Phase 1.** The key words MUST, MUST NOT,
+Status: **normative for format v1.** The key words MUST, MUST NOT,
 SHOULD, and MAY are to be interpreted as described in RFC 2119. This
 document is the single source of truth for the on-disk format; any change to
 the format requires bumping `format_version`.

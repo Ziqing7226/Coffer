@@ -119,6 +119,13 @@ comparing local refs against them, and the helper uses them as
 `^exclusions` for `pack-objects --revs`, so each push stores only the
 missing objects.
 
+Writers serialize through a transient `vault.lock` (format-spec §6):
+acquire the lock, reload the newest manifest, store objects, commit,
+release. Concurrent pushes queue instead of losing each other's updates,
+and a lock left by a crashed holder is stolen once provably stale — no
+manual cleanup. Readers never lock: object files are immutable and
+manifest generations authenticate independently.
+
 ### Fetch
 
 The mirror image, with the data direction reversed — and again no pack
@@ -157,7 +164,10 @@ The passphrase is set once, at `coffer init`. Afterwards it is requested
 - entering it every time is the default, but git's standard
   `credential.helper` backends work exactly as with any other remote:
   in-memory caching with a TTL (`git credential-cache`), or the OS-keyring
-  helper for longer-lived storage. Coffer itself never stores passphrases.
+  helper for longer-lived storage. After a successful authentication the
+  helper reports the credential to git (`git credential approve`), so a
+  configured helper remembers it from the second operation on; a rejected
+  passphrase is never approved. Coffer itself never stores passphrases.
 
 An optional key file can be required in addition to the passphrase
 (`coffer.keyfile`, per remote or per vault).

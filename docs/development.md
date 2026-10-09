@@ -69,10 +69,25 @@ run in CI.
 
 ### Phase 2 — Hardening
 
-- [ ] `progress` capability so VSCode shows real transfer progress.
-- [ ] Error messages that state what failed and what to do next.
-- [ ] The insteadOf recipe documented; a VSCode validation pass; a
-      large-repository smoke test (10k+ commits) with a timing budget.
+- [x] Progress reporting: `option progress` honored with stderr milestones
+      on fetch and push — the channel git relays to terminals and the
+      VSCode output panel.
+- [x] Error messages that state what failed and what to do next.
+- [x] Writer serialization: a transient `vault.lock` guards every write;
+      concurrent writers queue instead of losing updates, and a crashed
+      holder's lock is stolen once provably stale (format-spec §6).
+- [x] `git push --atomic` and `--force-with-lease` honored end to end;
+      the passphrase is approved to git after successful authentication,
+      so configured credential helpers can remember it.
+- [x] The insteadOf recipe documented (README, architecture notes).
+- [x] Large-repository smoke test (10k commits) with timing budgets,
+      opt-in via `COFFER_E2E_LARGE=1`; `COFFER_E2E_LARGE_DIR` places the
+      vault on external media. Reference run on FAT32 USB media: full
+      push 6.1s, fresh clone 3.4s, incremental push 3.5s, 4.9 MiB vault
+      (budgets 10m / 10m / 2m). The whole e2e suite also passes with all
+      vault data on FAT32 external media.
+- [ ] A VSCode validation pass in the UI — prompts, progress, and error
+      surfaces observed by hand.
 
 ### Phase 3 — Key management
 
@@ -101,6 +116,10 @@ run in CI.
   manifest, chunk header, chunk body, chunk tag) and assert the exact error.
 - **Crypto conformance**: fixed test vectors for the key-slot envelope and
   chunk framing, published with the reference implementation.
+- **Media validation**: the e2e suite passes with `TMPDIR` on FAT32
+  external media (`GOTMPDIR` keeps build artifacts on an executable
+  filesystem); vaults and scratch repositories then exercise a
+  permission-less, case-insensitive filesystem end to end.
 - **Git version matrix**: the validation floor (git 2.30, the first release
   with the helper `object-format` capability) and current git, across all
   supported operating systems. Tested versions are recorded per release,

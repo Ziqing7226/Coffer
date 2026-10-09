@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="status: phase 1 — MVP" src="https://img.shields.io/badge/status-phase%201%20%E2%80%94%20MVP-d4a017">
+  <img alt="status: phase 2 — hardening" src="https://img.shields.io/badge/status-phase%202%20%E2%80%94%20hardening-d4a017">
   &nbsp;
   <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-6e7681">
   &nbsp;
@@ -28,9 +28,10 @@ branch, tag, and commit — can be reconstructed from the vault alone.
 
 **Coffer implements vault format v1**: the encrypted store, the remote
 helper, and the `coffer` CLI are working and covered by tests that drive
-real git on Linux, Windows, and macOS. Hardening, key management, and
-packaging are on the [roadmap](#roadmap); until v1.0, treat vaults as
-not yet long-term stable.
+real git on Linux, Windows, and macOS — including a 10k-commit timing
+smoke against real external FAT32 media. Key management and packaging
+are on the [roadmap](#roadmap); until v1.0, treat vaults as not yet
+long-term stable.
 
 ## Why
 
@@ -67,6 +68,20 @@ To coffer::/mnt/usb/myproject.coffer
 
 On Windows: `git remote add origin coffer::D:\backups\myproject.coffer`.
 On macOS: `git remote add origin coffer::/Volumes/Backup/myproject.coffer`.
+
+For cleaner-looking remotes, git URL rewriting hides the scheme:
+
+```console
+$ git config --global url."coffer::/mnt/usb/".insteadOf "usb://"
+$ git remote add origin usb://myproject.coffer
+```
+
+Progress and error reporting flow through git's own channels: pushes and
+fetches print milestones when git asks for progress (`--progress`), and
+failures name the file and the fix. After a successful push, the
+passphrase is approved to git's credential flow, so a configured helper
+(cache, keyring) can remember it; `git push --atomic` and
+`--force-with-lease` work as with any remote.
 
 From then on, `git pull`, `git fetch`, `git clone`, and VSCode's Sync button
 all work against the vault with no further configuration. You need a stock
@@ -113,7 +128,7 @@ The full analysis is in [docs/threat-model.md](docs/threat-model.md).
 
 | Tool | What is encrypted | Windows | Dependencies | `git push` feels native |
 |---|---|---|---|---|
-| **Coffer** (planned) | the whole remote | first-class | none (static binary) | yes — remote helper |
+| **Coffer** | the whole remote | first-class | none (static binary) | yes — remote helper |
 | git-remote-gcrypt | the whole remote | partial | GPG + bash | yes — remote helper |
 | git-crypt, git-agecrypt | individual files inside a repo | yes | per-tool | n/a — different problem |
 | VeraCrypt + bare repo | a whole volume | yes | VeraCrypt, admin rights, manual mounting | no — mount first, push second |
@@ -126,7 +141,7 @@ zero-dependency" quadrant is empty.
 - [x] **Specification** — architecture, vault format v1, threat model
 - [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
 - [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
-- [ ] **Phase 2 — Hardening** — progress reporting, actionable errors, VSCode validation pass
+- [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke (VSCode UI pass still pending)
 - [ ] **Phase 3 — Key management** — multiple key slots, `rekey`, `coffer gc` / `coffer fsck`
 - [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
 
