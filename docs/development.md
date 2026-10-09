@@ -110,10 +110,14 @@ run in CI.
 
 ### Phase 4 — v1.0
 
-- [ ] Release binaries (linux/amd64, linux/arm64, windows/amd64,
-      darwin/amd64, darwin/arm64); scoop, winget, and Homebrew packaging.
-- [ ] User guide pages (quickstart, install, keys and recovery) — written
-      together with the code, not before.
+- [x] Release binaries: a tag-driven release workflow builds six targets
+      (linux/amd64+arm64, windows/amd64+arm64, darwin/amd64+arm64) with
+      checksums and publishes the GitHub release; scoop, winget, and
+      Homebrew manifests are prepared under `packaging/` for submission
+      with the stable 1.0.0.
+- [x] User guide pages — [user-guide.md](user-guide.md): install,
+      quickstart, keys and recovery, maintenance, troubleshooting; the
+      README carries the quick start and a CLI reference.
 - [x] Security review of the crypto envelope and error paths; format v1
       frozen as stable. A self-review (independent review welcome before
       the 1.0 release) covered the KDF/AEAD envelope, AAD bindings and
