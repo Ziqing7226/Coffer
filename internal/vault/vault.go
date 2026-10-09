@@ -25,6 +25,8 @@ const (
 	manifestPrefix         = "manifest."
 	defaultGenerationsKept = 2
 	objectNameBytes        = 16 // 32 hex chars per spec §5
+	maxMetaBytes           = 1 << 20
+	maxKeySlots            = 16
 )
 
 var (
@@ -110,9 +112,12 @@ func (s *Store) Manifest() *Manifest { return s.manifest }
 func (s *Store) ManifestNum() int { return s.manifestNum }
 
 // ReadMeta reads and validates the plaintext vault header without deriving
-// any key.
+// any key. The header is untrusted input: the read is bounded, the vault
+// id must be its spec-defined 32 hex characters (this also keeps the id
+// safe to embed in error hints), and the slot count is capped so a planted
+// file cannot make the open path grind through unbounded Argon2id runs.
 func ReadMeta(dir string) (Meta, error) {
-	data, err := os.ReadFile(filepath.Join(dir, metaName))
+	data, err := readLimited(filepath.Join(dir, metaName), maxMetaBytes)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return Meta{}, fmt.Errorf("%w: %s is missing", ErrNotVault, metaName)
@@ -127,10 +132,28 @@ func ReadMeta(dir string) (Meta, error) {
 		return Meta{}, fmt.Errorf("vault format version %d not supported by this build (supports %d)",
 			m.FormatVersion, crypto.FormatVersion)
 	}
-	if m.ID == "" || len(m.Slots) == 0 {
-		return Meta{}, fmt.Errorf("%w: %s lacks id or key slots", ErrCorrupt, metaName)
+	if !isHexID(m.ID) {
+		return Meta{}, fmt.Errorf("%w: %s carries a malformed vault id", ErrCorrupt, metaName)
+	}
+	if len(m.Slots) == 0 {
+		return Meta{}, fmt.Errorf("%w: %s lacks key slots", ErrCorrupt, metaName)
+	}
+	if len(m.Slots) > maxKeySlots {
+		return Meta{}, fmt.Errorf("%w: %s lists %d key slots (maximum %d)", ErrCorrupt, metaName, len(m.Slots), maxKeySlots)
 	}
 	return m, nil
+}
+
+func isHexID(s string) bool {
+	if len(s) != 32 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }
 
 // Create initializes a new vault at dir: one key slot sealed with passphrase,
@@ -409,7 +432,7 @@ func (s *Store) commit(next *Manifest) error {
 	// outlived lockStaleAfter and another writer stole the lock, committing
 	// now would clobber its update.
 	if s.lockGuard != "" {
-		cur, err := os.ReadFile(filepath.Join(s.dir, lockName))
+		cur, err := readLimited(filepath.Join(s.dir, lockName), 8192)
 		if err != nil || string(cur) != s.lockGuard {
 			return errors.New("vault writer lock was taken over by another operation; commit aborted — retry the operation")
 		}
@@ -441,6 +464,14 @@ func (s *Store) commit(next *Manifest) error {
 	}
 	s.crashPoint("after-manifest-write")
 	final := filepath.Join(s.dir, fmt.Sprintf("%s%d", manifestPrefix, newNum))
+	// Narrow the guard-then-rename window: our generation number came
+	// from a reload under the lock, so an existing target means another
+	// writer committed past us (a stolen-lock race) — abort rather than
+	// overwrite its update.
+	if _, serr := os.Lstat(final); serr == nil {
+		os.Remove(tmp)
+		return errors.New("manifest generation already exists — another writer committed concurrently; retry the operation")
+	}
 	if err := os.Rename(tmp, final); err != nil {
 		os.Remove(tmp)
 		return err

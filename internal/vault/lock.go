@@ -72,16 +72,28 @@ func pidAlive(pid int) bool {
 
 // stale decides whether a held lock may be stolen: its holder is provably
 // gone (dead pid on this host), or it outlived lockStaleAfter (covers
-// cross-machine holders and platforms without a liveness probe). When the
-// content is unparseable, the file mtime substitutes for Started.
+// cross-machine holders and platforms without a liveness probe).
+// Timestamps further in the future than futureSkew are treated as
+// untrustworthy: a planted lock dated years ahead falls back to the file's
+// mtime — blocking writes at most lockStaleAfter, never until the stated
+// date. Unparseable content uses the same mtime fallback.
+const futureSkew = time.Hour
+
 func stale(info lockInfo, mtime time.Time) bool {
-	if info.Host != "" {
-		if time.Since(info.Started) > lockStaleAfter {
+	now := time.Now()
+	startedOK := !info.Started.IsZero() && !info.Started.After(now.Add(futureSkew))
+	if info.Host != "" && startedOK {
+		if now.Sub(info.Started) > lockStaleAfter {
 			return true
 		}
 		return runtime.GOOS != "windows" && info.Host == hostname() && !pidAlive(info.PID)
 	}
-	return time.Since(mtime) > lockStaleAfter
+	// No trustworthy content timestamp: mtime decides; an mtime itself
+	// dated beyond skew is nonsense content — steal rather than block.
+	if mtime.After(now.Add(futureSkew)) {
+		return true
+	}
+	return now.Sub(mtime) > lockStaleAfter
 }
 
 // acquireLock takes the vault writer lock (spec §6, writer lock): an
@@ -106,7 +118,10 @@ func acquireLock(dir string) (release func(), guard string, err error) {
 		if !os.IsExist(err) {
 			return nil, "", err
 		}
-		data, rerr := os.ReadFile(path)
+		// vault.lock may be a planted file: read without following
+		// symlinks, refuse non-regular files, and bound the size — a
+		// symlink to /dev/zero would otherwise read forever.
+		data, rerr := readLimited(path, 8192)
 		if rerr != nil {
 			return nil, "", rerr
 		}

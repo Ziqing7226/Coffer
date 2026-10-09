@@ -30,7 +30,10 @@ func slotSecret(dir string, slot crypto.Slot, passphrase string) (string, error)
 		if !filepath.IsAbs(path) {
 			path = filepath.Join(dir, path)
 		}
-		data, err := os.ReadFile(path)
+		// The path comes from plaintext vault.meta an attacker may have
+		// rewritten: refuse non-regular files (a device or FIFO would
+		// read forever) and bound the size.
+		data, err := readLimited(path, 1<<20)
 		if err != nil {
 			return "", fmt.Errorf("key file for slot %d: %v", slot.ID, err)
 		}
@@ -61,8 +64,14 @@ func (s *Store) OpenedSlotID() int { return s.openedSlotID }
 // combined with a key file (second factor). A keyfile path that does not
 // yet exist is created with fresh random bytes, mode 0600, and its
 // absolute path is recorded in the slot; the user must back it up
-// separately from the vault. Returns the new slot id.
+// separately from the vault. Returns the new slot id. Meta rewrites hold
+// the writer lock so concurrent key operations refuse rather than race.
 func (s *Store) AddSlot(newPass, keyfile string) (int, error) {
+	release, err := s.AcquireLock()
+	if err != nil {
+		return 0, err
+	}
+	defer release()
 	id := 0
 	for _, sl := range s.meta.Slots {
 		if sl.ID >= id {
@@ -71,13 +80,12 @@ func (s *Store) AddSlot(newPass, keyfile string) (int, error) {
 	}
 	secret := newPass
 	var created *crypto.Slot
-	var err error
 	if keyfile != "" {
 		keyfile, err = ensureKeyfile(keyfile)
 		if err != nil {
 			return 0, err
 		}
-		data, err := os.ReadFile(keyfile)
+		data, err := readLimited(keyfile, 1<<20)
 		if err != nil {
 			return 0, err
 		}
@@ -133,6 +141,11 @@ func ensureKeyfile(path string) (string, error) {
 // RemoveSlot drops the slot with the given id from vault.meta. The last
 // remaining slot is refused: a vault must keep at least one way in.
 func (s *Store) RemoveSlot(id int) error {
+	release, err := s.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer release()
 	if len(s.meta.Slots) <= 1 {
 		return errors.New("refusing to remove the last key slot")
 	}
@@ -157,6 +170,11 @@ func (s *Store) RemoveSlot(id int) error {
 // vault.meta is rewritten: object data is never re-encrypted (the DEK
 // itself does not change).
 func (s *Store) Rekey(newPass string) error {
+	release, err := s.AcquireLock()
+	if err != nil {
+		return err
+	}
+	defer release()
 	fresh, err := crypto.SealSlot(s.openedSlotID, newPass, s.dek, s.meta.ID, crypto.DefaultParams())
 	if err != nil {
 		return err

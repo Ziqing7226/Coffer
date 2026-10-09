@@ -13,6 +13,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/Ziqing7226/Coffer/internal/crypto"
 )
 
 // Finding is one fsck observation. Err findings mean the vault is damaged
@@ -158,9 +160,17 @@ func Fsck(dir, passphrase string) ([]Finding, error) {
 	for _, name := range packNames {
 		sum, size, err := verifyObject(s, name)
 		want := m.Packs[name]
+		wantFrame := expectedCiphertextSize(want.Size)
+		info, statErr := os.Stat(filepath.Join(dir, objDirName, name))
 		switch {
 		case err != nil:
 			add("obj", fmt.Sprintf("%s: %v", name, err), true)
+			objErrs++
+		case statErr == nil && info.Size() != wantFrame:
+			// The framing is size-derived: extra trailing bytes (or a
+			// truncated frame) are tampering the chunk reader cannot see,
+			// because it stops after the authenticated chunk count.
+			add("obj", fmt.Sprintf("%s: file is %d bytes, framing a %d-byte plaintext expects exactly %d", name, info.Size(), want.Size, wantFrame), true)
 			objErrs++
 		case sum != want.SHA256:
 			add("obj", fmt.Sprintf("%s: plaintext checksum %s, manifest records %s", name, shortHash(sum), shortHash(want.SHA256)), true)
@@ -218,4 +228,20 @@ func shortHash(h string) string {
 		return h[:12] + "…"
 	}
 	return h
+}
+
+// expectedCiphertextSize returns the exact on-disk size of an object file
+// holding a plain-byte plaintext under spec §5 framing: for each chunk,
+// nonce || AEAD(plaintext chunk).
+func expectedCiphertextSize(plain int64) int64 {
+	if plain <= 0 {
+		return 0
+	}
+	perChunk := int64(crypto.NonceSize) + int64(crypto.TagSize) + crypto.ChunkSize
+	full := plain / crypto.ChunkSize
+	last := plain % crypto.ChunkSize
+	if last == 0 {
+		return full * perChunk
+	}
+	return full*perChunk + int64(crypto.NonceSize) + int64(crypto.TagSize) + last
 }

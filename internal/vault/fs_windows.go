@@ -11,3 +11,9 @@ import "os"
 func createNoFollow(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 }
+
+// openNoFollowReadOnly opens a file for reading; the regular-file and size
+// checks in readLimited still apply.
+func openNoFollowReadOnly(path string) (*os.File, error) {
+	return os.Open(path)
+}
