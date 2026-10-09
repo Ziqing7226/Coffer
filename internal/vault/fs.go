@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 // crashPoint is a fault-injection hook for tests (docs/development.md,

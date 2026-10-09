@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 func truncateFile(t *testing.T, path string, keep int64) {
