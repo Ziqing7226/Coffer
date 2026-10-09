@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 const (
