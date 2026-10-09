@@ -326,7 +326,7 @@ func (s *Store) WriteObject(plain io.Reader) (string, error) {
 	}
 	objPath := filepath.Join(s.dir, objDirName, name)
 	tmp := objPath + ".tmp"
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := createNoFollow(tmp)
 	if err != nil {
 		return "", err
 	}
@@ -421,13 +421,23 @@ func (s *Store) commit(next *Manifest) error {
 	}
 	newNum := s.manifestNum + 1
 	tmp := filepath.Join(s.dir, fmt.Sprintf("%s%d.tmp", manifestPrefix, newNum))
-	if err := os.WriteFile(tmp, record, 0o600); err != nil {
+	tf, err := createNoFollow(tmp)
+	if err != nil {
 		return err
 	}
-	f, err := os.Open(tmp)
-	if err == nil {
-		f.Sync()
-		f.Close()
+	if _, err := tf.Write(record); err != nil {
+		tf.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := tf.Sync(); err != nil {
+		tf.Close()
+		os.Remove(tmp)
+		return err
+	}
+	if err := tf.Close(); err != nil {
+		os.Remove(tmp)
+		return err
 	}
 	s.crashPoint("after-manifest-write")
 	final := filepath.Join(s.dir, fmt.Sprintf("%s%d", manifestPrefix, newNum))

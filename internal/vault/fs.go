@@ -36,10 +36,12 @@ func syncDir(dir string) error {
 }
 
 // writeFileAtomic writes dir/name through a temp file, fsync, and rename
-// (docs/format-spec.md §6), making the result all-or-nothing.
+// (docs/format-spec.md §6), making the result all-or-nothing. The temp
+// file is opened with O_NOFOLLOW on Unix: a planted symlink must fail the
+// write, not redirect it.
 func writeFileAtomic(dir, name string, write func(*os.File) error) error {
 	tmp := filepath.Join(dir, name+".tmp")
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := createNoFollow(tmp)
 	if err != nil {
 		return err
 	}
