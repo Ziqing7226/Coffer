@@ -17,6 +17,10 @@ import (
 	"golang.org/x/term"
 )
 
+// version is stamped at release time via -ldflags "-X main.version=…";
+// source builds report themselves as development builds.
+var version = "development build"
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -30,6 +34,8 @@ func main() {
 		err = statusCmd(os.Args[2:])
 	case "rekey":
 		err = rekeyCmd(os.Args[2:])
+	case "version":
+		fmt.Printf("coffer %s\n", version)
 	case "key":
 		if len(os.Args) < 3 {
 			usage()
@@ -75,6 +81,7 @@ func usage() {
   coffer key list <vault-directory>        list key slots (no passphrase needed)
   coffer gc <vault-directory>              remove orphaned objects, temp files, old generations
   coffer fsck <vault-directory>            verify every structure of the vault
+  coffer version                           print the build version
 `)
 }
 

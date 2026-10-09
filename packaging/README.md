@@ -1,0 +1,14 @@
+# Packaging manifests
+
+Ready-to-submit entries for the package stores. They target the stable
+1.0.0 release; the `sha256`/`hash` fields are filled in at submission
+time from the released archives (`checksums.txt` on the release page).
+
+| Store | Manifest | Destination |
+|---|---|---|
+| Homebrew | [homebrew/coffer.rb](homebrew/coffer.rb) | homebrew-core (or a custom tap) |
+| scoop | [scoop/coffer.json](scoop/coffer.json) | scoop-community/ScoopInstallerExtras or a personal bucket |
+| winget | [winget/Ziqing7226.Coffer.yaml](winget/Ziqing7226.Coffer.yaml) | microsoft/winget-pkgs |
+
+Until then, users install from the [release archives](https://github.com/Ziqing7226/Coffer/releases)
+or with `go install github.com/Ziqing7226/Coffer/cmd/{coffer,git-remote-coffer}@<tag>`.

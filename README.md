@@ -5,17 +5,21 @@
 <h1 align="center">Coffer</h1>
 
 <p align="center">
-  <strong>An encrypted git remote that lives on your own disk.</strong><br>
+  <strong>Your code. Your keys. An encrypted git remote on your own disk.</strong><br>
   Push from any git client — including VSCode — straight into a
   password-protected vault on a second disk or USB drive.
 </p>
 
 <p align="center">
-  <img alt="status: phase 3 — key management" src="https://img.shields.io/badge/status-phase%203%20%E2%80%94%20key%20management-d4a017">
+  <img alt="version 1.0.0-pre" src="https://img.shields.io/badge/version-1.0.0--pre-blue">
   &nbsp;
   <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-6e7681">
   &nbsp;
   <img alt="license" src="https://img.shields.io/badge/license-MIT-6e7681">
+</p>
+
+<p align="center">
+  <img src="docs/assets/workflow.png" alt="git push, encrypted by Argon2id and XChaCha20-Poly1305, stored in a vault on a USB drive" width="720">
 </p>
 
 ---
@@ -24,20 +28,23 @@ Coffer turns any directory on a removable or secondary disk into a fully
 encrypted git remote. `git push` works exactly the way it always has — but
 the bytes that reach the disk are ciphertext. Whoever finds the drive finds
 random-looking files; with the passphrase, the complete repository — every
-branch, tag, and commit — can be reconstructed from the vault alone.
+branch, tag, and commit — is reconstructed from the vault alone.
 
-**Coffer implements vault format v1**: the encrypted store, the remote
-helper, and the `coffer` CLI are working and covered by tests that drive
-real git on Linux, Windows, and macOS — including a 10k-commit timing
-smoke against real external FAT32 media. Packaging is on the
-[roadmap](#roadmap); until v1.0, treat vaults as not yet long-term
-stable.
+Vault format v1 is frozen and pinned by published
+[test vectors](docs/test-vectors.json). This is the **1.0.0-pre** release:
+fully functional and tested — including crash, corruption, and
+real-external-media batteries — with packaging-store submissions and final
+polish to come in 1.0.0.
 
 ## Why
 
+<p align="center">
+  <img src="docs/assets/why-coffer.png" alt="A vault at the center, surrounded by: no third party, single static binary, cross-platform, native git clients" width="560">
+</p>
+
 - **No third party.** The remote is a directory you control — a USB stick,
   an external drive, a second internal disk. Nothing ever leaves your
-  hardware.
+  hardware; the code contains no networking at all.
 - **Encrypted at rest.** The entire repository — objects, refs, history — is
   sealed under passphrase encryption (Argon2id key derivation,
   XChaCha20-Poly1305 AEAD). Possessing the drive is not enough.
@@ -49,13 +56,47 @@ stable.
   rights. The vault is plain files, so exFAT and FAT32 media are fully
   supported.
 
-## Target interface
+## How it works
 
-Everyday use, exactly as implemented today:
+Git delegates transport for unknown URL schemes to a helper binary: a
+`coffer::<path>` remote makes git invoke `git-remote-coffer`. On push, the
+helper reads the objects straight from your repository, encrypts them, and
+writes them into the vault; on fetch it does the reverse, importing
+decrypted objects back into your object database. Git never notices the
+difference — which is why every git client stays compatible. Requirements:
+stock git ≥ 2.30 (where the helper `object-format` capability first
+appeared) and the two Coffer binaries on `PATH`. The design and its
+rationale are in [docs/architecture.md](docs/architecture.md); the on-disk
+layout is normative in [docs/format-spec.md](docs/format-spec.md).
+
+## Install
+
+Download a release for your platform — Linux, Windows, macOS, amd64 or
+arm64 — from the [releases page](https://github.com/Ziqing7226/Coffer/releases),
+unpack, and put both `coffer` and `git-remote-coffer` on `PATH` (git finds
+the helper through `PATH`; no administrator rights needed). Verify:
+
+```console
+$ coffer version
+coffer 1.0.0-pre
+```
+
+Or build from source with Go ≥ 1.27:
+
+```console
+$ go install github.com/Ziqing7226/Coffer/cmd/coffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/Coffer/cmd/git-remote-coffer@v1.0.0-pre
+```
+
+Package-manager entries (Homebrew, scoop, winget) arrive with the stable
+1.0.0 release.
+
+## Quick start
 
 ```console
 $ coffer init /mnt/usb/myproject.coffer
-Passphrase for new vault: ********
+Enter passphrase for the new vault: ********
+Repeat passphrase: ********
 Vault created: /mnt/usb/myproject.coffer
 
 $ git remote add origin coffer::/mnt/usb/myproject.coffer
@@ -66,53 +107,36 @@ To coffer::/mnt/usb/myproject.coffer
  * [new branch]      main -> main
 ```
 
-On Windows: `git remote add origin coffer::D:\backups\myproject.coffer`.
-On macOS: `git remote add origin coffer::/Volumes/Backup/myproject.coffer`.
+From then on, `git pull`, `git fetch`, `git clone`, and VSCode's Sync
+button all work against the vault. The passphrase is requested through
+git's own credential flow — terminal prompt, native VSCode input box, or a
+configured credential helper (`--atomic` and `--force-with-lease` work as
+with any remote). On Windows:
+`git remote add origin coffer::D:\backups\myproject.coffer`; on macOS:
+`coffer::/Volumes/Backup/myproject.coffer`. To clone on another machine,
+only git, Coffer, and the passphrase are needed:
+`git clone coffer::/mnt/usb/myproject.coffer`.
 
-For cleaner-looking remotes, git URL rewriting hides the scheme:
+### The coffer CLI
 
-```console
-$ git config --global url."coffer::/mnt/usb/".insteadOf "usb://"
-$ git remote add origin usb://myproject.coffer
-```
+| Command | Purpose |
+|---|---|
+| `coffer init <dir>` | create a new vault |
+| `coffer status <dir>` | inspect: format, slots, refs, packs |
+| `coffer rekey <dir>` | change the passphrase (data is never re-encrypted) |
+| `coffer key add / remove / list` | manage key slots; optional key-file second factor |
+| `coffer gc <dir>` | reclaim space from interrupted pushes and old generations |
+| `coffer fsck <dir>` | verify every structure of the vault |
+| `coffer version` | print the build version |
 
-Progress and error reporting flow through git's own channels: pushes and
-fetches print milestones when git asks for progress (`--progress`), and
-failures name the file and the fix. After a successful push, the
-passphrase is approved to git's credential flow, so a configured helper
-(cache, keyring) can remember it; `git push --atomic` and
-`--force-with-lease` work as with any remote.
-
-From then on, `git pull`, `git fetch`, `git clone`, and VSCode's Sync button
-all work against the vault with no further configuration. You need a stock
-git — validation floor 2.30, where the helper `object-format` capability
-(SHA-256 repository support) first appeared — and the Coffer binaries on
-PATH. Release packaging arrives in Phase 4; until then, build from source
-with Go (`go build ./cmd/coffer ./cmd/git-remote-coffer`). Release notes
-list the exact git versions each release was tested against. Passphrases are
-requested through git's own credential flow, so prompts appear natively in
-the terminal or in VSCode.
-
-## How it works
-
-```mermaid
-flowchart LR
-    A["git push<br>(CLI or VSCode)"] --> B["git<br>(stock, unmodified)"]
-    B -- "remote-helper protocol" --> C["git-remote-coffer"]
-    C -- "Argon2id + XChaCha20-Poly1305" --> D["vault on USB / second disk<br>(encrypted at rest)"]
-```
-
-Git delegates transport for unknown URL schemes to a helper binary
-(`coffer::…` makes git invoke `git-remote-coffer`). The helper reads the
-pushed objects straight from your repository, encrypts them, and stores
-them in the vault directory; on fetch it does the reverse, importing
-decrypted objects back into your repository. Git never notices the
-difference — which is why every git client stays compatible. The design
-and its rationale are in [docs/architecture.md](docs/architecture.md);
-the on-disk layout is specified normatively in
-[docs/format-spec.md](docs/format-spec.md).
+Full walkthrough — keys and recovery, maintenance, troubleshooting:
+[docs/user-guide.md](docs/user-guide.md).
 
 ## Security scope
+
+<p align="center">
+  <img src="docs/assets/locked-vs-open.png" alt="Left: someone finding the drive sees only scrambled scribbles. Right: with the passphrase, the vault opens into an orderly commit history." width="640">
+</p>
 
 Coffer protects **repository data at rest on the remote medium**.
 
@@ -124,33 +148,30 @@ Coffer protects **repository data at rest on the remote medium**.
 
 The full analysis is in [docs/threat-model.md](docs/threat-model.md).
 
-## How Coffer compares
+## Choosing an approach
 
-| Tool | What is encrypted | Windows | Dependencies | `git push` feels native |
-|---|---|---|---|---|
-| **Coffer** | the whole remote | first-class | none (static binary) | yes — remote helper |
-| git-remote-gcrypt | the whole remote | partial | GPG + bash | yes — remote helper |
-| git-crypt, git-agecrypt | individual files inside a repo | yes | per-tool | n/a — different problem |
-| VeraCrypt + bare repo | a whole volume | yes | VeraCrypt, admin rights, manual mounting | no — mount first, push second |
+Encrypting git backups has three mature shapes, each fitting different
+needs — the right choice is whatever matches yours:
 
-Coffer exists because the "whole remote, encrypted, cross-platform,
-zero-dependency" quadrant is empty.
+- **Encrypting individual files inside the repository** — the natural fit
+  when the remote host must stay readable, for example while collaborating
+  through a public git host.
+- **An encrypted volume holding a bare repository** — natural when you
+  already work with encrypted volumes and don't mind mounting one before
+  every push.
+- **An encrypted remote helper** — the whole remote is ciphertext; `git
+  push` stays a single step, on every platform, with no drivers or daemons.
 
-## Roadmap
-
-- [x] **Specification** — architecture, vault format v1, threat model
-- [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
-- [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
-- [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke, VSCode UI pass
-- [x] **Phase 3 — Key management** — multiple key slots, `rekey` without re-encrypting data, optional key-file second factor, `coffer gc` / `coffer fsck`
-- [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew) and the user guide (security review complete; format v1 frozen, with published test vectors)
-
-Phases with acceptance criteria: [docs/development.md](docs/development.md).
+Coffer lives in the third shape. Its design follows the path that
+[git-remote-gcrypt](https://github.com/spwhitton/git-remote-gcrypt) proved
+on Linux, and aims to offer it everywhere with no dependencies — we are
+grateful for the ground it broke.
 
 ## Documentation
 
 | Document | Purpose |
 |---|---|
+| [User guide](docs/user-guide.md) | install, everyday use, keys and recovery, maintenance |
 | [Architecture](docs/architecture.md) | design decisions, components, protocol flows |
 | [Vault format specification](docs/format-spec.md) | normative on-disk format — build against this |
 | [Threat model](docs/threat-model.md) | what Coffer does and does not protect |
@@ -159,14 +180,10 @@ Phases with acceptance criteria: [docs/development.md](docs/development.md).
 
 ## Contributing
 
-Contributions are welcome. While the project is specification-only, issues
-that find holes, ambiguities, or over-engineering in the docs are the most
-valuable ones; implementation begins with Phase 0. All artifacts in this
-repository are written in English — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Coffer's design follows the path proven by
-[git-remote-gcrypt](https://github.com/spwhitton/git-remote-gcrypt); the goal
-is to offer what gcrypt offers on Linux — everywhere, with no dependencies.
+Issues and pull requests are welcome — holes in the threat model, gaps in
+the guide, portability reports, and fixes all count. All artifacts in this
+repository are written in English; see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

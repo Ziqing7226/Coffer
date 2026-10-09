@@ -1,0 +1,61 @@
+name: Release
+
+# Tag-driven releases: push v* to build all five platforms, checksum the
+# archives, and publish a GitHub release (pre-release while the version
+# carries a pre-release suffix).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+      - name: Build every platform and pack archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
+            os="${target%/*}"; arch="${target#*/}"
+            exe=""; [ "$os" = "windows" ] && exe=".exe"
+            stage="coffer-${VERSION}-${os}-${arch}"
+            mkdir -p "dist/${stage}"
+            for cmd in coffer git-remote-coffer; do
+              GOOS="$os" GOARCH="$arch" go build -trimpath \
+                -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+                -o "dist/${stage}/${cmd}${exe}" "./cmd/${cmd}"
+            done
+            ( cd dist
+              if [ "$os" = "windows" ]; then
+                zip -qr "${stage}.zip" "${stage}"
+              else
+                tar -czf "${stage}.tar.gz" "${stage}"
+              fi
+              rm -rf "${stage}" )
+          done
+          ( cd dist && sha256sum -- *.zip *.tar.gz > checksums.txt )
+          ls -la dist
+      - name: Publish the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            *-pre*|*-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
+            *) PRE="" ;;
+          esac
+          gh release create "$TAG" dist/coffer-* dist/checksums.txt \
+            $PRE \
+            --title "Coffer $TAG" \
+            --notes "Binaries for Linux (amd64, arm64), Windows (amd64, arm64), and macOS (amd64, arm64). Put \`coffer\` and \`git-remote-coffer\` on PATH; see the [user guide](https://github.com/Ziqing7226/Coffer/blob/main/docs/user-guide.md). Verify archives against \`checksums.txt\`."
