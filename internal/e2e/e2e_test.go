@@ -333,6 +333,48 @@ func TestProgressReported(t *testing.T) {
 	}
 }
 
+// TestCredentialApprovedAfterSuccess verifies that a successful
+// authentication is reported to git (git credential approve), so a
+// configured credential helper remembers the passphrase — and that a wrong
+// passphrase is never approved, so nothing stale gets cached.
+func TestCredentialApprovedAfterSuccess(t *testing.T) {
+	credFile := filepath.Join(t.TempDir(), "creds")
+
+	vaultDir := newVault(t)
+	meta, err := vault.ReadMeta(vaultDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	git(t, src, nil, "config", "credential.helper", "store --file="+credFile)
+
+	git(t, src, nil, "push", "-q", "-u", "origin", "main")
+	data, err := os.ReadFile(credFile)
+	if err != nil {
+		t.Fatalf("credential helper wrote nothing after a successful push: %v", err)
+	}
+	// credential-store serializes as a URL (coffer://coffer:<pass>@coffer/<id>);
+	// assert on content, not on the serialization format.
+	for _, want := range []string{meta.ID, passphrase} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("stored credential lacks %q:\n%s", want, data)
+		}
+	}
+
+	// A rejected passphrase must not be approved.
+	credFile2 := filepath.Join(t.TempDir(), "creds")
+	vaultDir2 := newVault(t)
+	src2 := newRepo(t, "src2")
+	git(t, src2, nil, "remote", "add", "origin", vaultURL(vaultDir2))
+	git(t, src2, nil, "config", "credential.helper", "store --file="+credFile2)
+	gitFail(t, src2, []string{"GIT_ASKPASS=" + wrongPass}, "push", "origin", "main")
+	if _, err := os.Stat(credFile2); err == nil {
+		d, _ := os.ReadFile(credFile2)
+		t.Fatalf("rejected passphrase was approved and cached:\n%s", d)
+	}
+}
+
 func TestWrongPassphraseRejected(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")

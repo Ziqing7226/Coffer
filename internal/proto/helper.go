@@ -140,6 +140,12 @@ func (s *session) openStore() error {
 	if err != nil {
 		return err
 	}
+	// The passphrase authenticated: let git's credential helpers remember
+	// it if the user configured any (cache, osxkeychain, wincred, store).
+	// Best-effort — a failure to remember must not fail the operation.
+	if err := ApprovePassphrase(meta.ID, pass); err != nil {
+		fmt.Fprintf(os.Stderr, "git-remote-coffer: %v (continuing without caching)\n", err)
+	}
 	s.store = st
 	return nil
 }

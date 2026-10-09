@@ -25,5 +25,21 @@ func GetPassphrase(vaultID string) (string, error) {
 			return v, nil
 		}
 	}
-	return "", errors.New("no passphrase supplied for the vault")
+	return "", errors.New("no passphrase supplied for the vault: the terminal prompt, GIT_ASKPASS, or credential helper returned an empty value")
+}
+
+// ApprovePassphrase reports a successful authentication to git
+// (`git credential approve`), so configured credential helpers may remember
+// the passphrase. With no helper configured it is a no-op. It must only be
+// called after the passphrase opened a key slot — never on failure, or a
+// wrong passphrase would be cached.
+func ApprovePassphrase(vaultID, pass string) error {
+	cmd := exec.Command("git", "credential", "approve")
+	cmd.Stdin = strings.NewReader("protocol=coffer\nhost=coffer\npath=" + vaultID + "\nusername=coffer\npassword=" + pass + "\n\n")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git credential approve: %v: %s", err, stderr.String())
+	}
+	return nil
 }
