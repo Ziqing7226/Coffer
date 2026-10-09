@@ -308,6 +308,31 @@ func TestDryRunPushChangesNothing(t *testing.T) {
 	}
 }
 
+// TestProgressReported verifies that push and fetch emit "coffer:" progress
+// milestones on stderr when git requests progress (--progress), and stay
+// quiet otherwise (git then sends "option progress false").
+func TestProgressReported(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+
+	out := git(t, src, nil, "push", "--progress", "-u", "origin", "main")
+	if !strings.Contains(out, "coffer: ") {
+		t.Fatalf("push --progress lacks coffer milestones: %s", out)
+	}
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	out = git(t, t.TempDir(), nil, "clone", "--progress", "-q", vaultURL(vaultDir), clone)
+	if !strings.Contains(out, "coffer: ") {
+		t.Fatalf("clone --progress lacks coffer milestones: %s", out)
+	}
+
+	out = git(t, src, nil, "push", "-q", "origin", "main")
+	if strings.Contains(out, "coffer: ") {
+		t.Fatalf("quiet push unexpectedly reported progress: %s", out)
+	}
+}
+
 func TestWrongPassphraseRejected(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")
