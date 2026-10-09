@@ -179,11 +179,14 @@ never a mixture. Any `.tmp` file a reader finds is garbage by definition;
 **Writer lock.** A writer MUST hold the lock file `vault.lock` (exclusively
 created, removed at the end of the write operation) for the whole write:
 reading the current state, storing object files, and committing the
-manifest. A lock left behind by a crashed writer MAY be removed once its
-holder is provably gone or after a generous staleness interval (the
-reference implementation uses 15 minutes). Readers MUST ignore
-`vault.lock`, as they MUST ignore any unrecognized file in the vault root:
-only `vault.meta`, `manifest.<n>`, and `obj/` carry meaning.
+manifest. Operations that remove data (`gc`) are writers in this sense:
+they hold the lock across their scan and sweep, so an object committed by
+a concurrent push can never be mistaken for an orphan. A lock left behind
+by a crashed writer MAY be removed once its holder is provably gone or
+after a generous staleness interval (the reference implementation uses 15
+minutes). Readers MUST ignore `vault.lock`, as they MUST ignore any
+unrecognized file in the vault root: only `vault.meta`, `manifest.<n>`,
+and `obj/` carry meaning.
 
 ## 7. Corruption and tamper semantics
 

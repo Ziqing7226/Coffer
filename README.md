@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="status: phase 2 — hardening" src="https://img.shields.io/badge/status-phase%202%20%E2%80%94%20hardening-d4a017">
+  <img alt="status: phase 3 — key management" src="https://img.shields.io/badge/status-phase%203%20%E2%80%94%20key%20management-d4a017">
   &nbsp;
   <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-6e7681">
   &nbsp;
@@ -29,9 +29,9 @@ branch, tag, and commit — can be reconstructed from the vault alone.
 **Coffer implements vault format v1**: the encrypted store, the remote
 helper, and the `coffer` CLI are working and covered by tests that drive
 real git on Linux, Windows, and macOS — including a 10k-commit timing
-smoke against real external FAT32 media. Key management and packaging
-are on the [roadmap](#roadmap); until v1.0, treat vaults as not yet
-long-term stable.
+smoke against real external FAT32 media. Packaging is on the
+[roadmap](#roadmap); until v1.0, treat vaults as not yet long-term
+stable.
 
 ## Why
 
@@ -142,7 +142,7 @@ zero-dependency" quadrant is empty.
 - [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
 - [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
 - [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke, VSCode UI pass
-- [ ] **Phase 3 — Key management** — multiple key slots, `rekey`, `coffer gc` / `coffer fsck`
+- [x] **Phase 3 — Key management** — multiple key slots, `rekey` without re-encrypting data, optional key-file second factor, `coffer gc` / `coffer fsck`
 - [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
 
 Phases with acceptance criteria: [docs/development.md](docs/development.md).
