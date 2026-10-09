@@ -94,10 +94,16 @@ run in CI.
 
 ### Phase 3 — Key management
 
-- [ ] Multiple key slots; `coffer rekey` (manifest-only re-encryption).
-- [ ] Optional key file as a second factor.
-- [ ] `coffer gc` (generation pruning, `.tmp` sweep) and `coffer fsck`
-      (full AEAD and chain verification).
+- [x] Multiple key slots; `coffer rekey` rewrites only `vault.meta` —
+      tests assert object files stay byte-identical.
+- [x] Optional key file as a second factor: the slot derives from
+      passphrase + key-file bytes and records the path, so the helper
+      reads it automatically (no per-remote configuration).
+- [x] `coffer gc` (orphaned objects, `.tmp` sweep, generation pruning;
+      holds the writer lock across scan and sweep; refuses to delete
+      anything if any generation fails to decrypt) and `coffer fsck`
+      (slot shapes, manifest authentication, `prev` chain, ref inventory,
+      per-object AEAD + checksum + size; first divergence per structure).
 
 ### Phase 4 — v1.0
 

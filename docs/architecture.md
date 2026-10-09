@@ -123,8 +123,10 @@ Writers serialize through a transient `vault.lock` (format-spec §6):
 acquire the lock, reload the newest manifest, store objects, commit,
 release. Concurrent pushes queue instead of losing each other's updates,
 and a lock left by a crashed holder is stolen once provably stale — no
-manual cleanup. Readers never lock: object files are immutable and
-manifest generations authenticate independently.
+manual cleanup. `gc` holds the same lock across its scan and sweep, so an
+object committed by a concurrent push can never be mistaken for an orphan.
+Readers never lock: object files are immutable and manifest generations
+authenticate independently.
 
 ### Fetch
 
@@ -169,8 +171,13 @@ The passphrase is set once, at `coffer init`. Afterwards it is requested
   configured helper remembers it from the second operation on; a rejected
   passphrase is never approved. Coffer itself never stores passphrases.
 
-An optional key file can be required in addition to the passphrase
-(`coffer.keyfile`, per remote or per vault).
+A key slot can also require a **key file** as a second factor
+(`coffer key add -keyfile <path>`): the slot derives its key from the
+passphrase concatenated with the file's bytes and records the file's
+path. The file itself deliberately lives away from the vault — losing it
+locks out that slot, which is the point. Because the path travels in
+`vault.meta`, the remote helper reads the key file automatically; pushes
+from VSCode need no extra configuration.
 
 For users who prefer cleaner-looking remotes, git URL rewriting hides the
 scheme in everyday output:

@@ -63,8 +63,10 @@ A single JSON object, created by `coffer init`, rewritten only by
         "algo": "argon2id", "m": 65536, "t": 3, "p": 4,
         "salt": "<b64, 16 bytes>"
       },
-      "aead": { "algo": "xchacha20-poly1305", "nonce": "<b64, 24 bytes>" },
-      "dek": "<b64: AEAD(plaintext = DEK, key = KEK, nonce, AAD(\"meta-slot/<vault id>/<slot id>\"))>"
+      "aead": { "algo": "xchacha20poly1305", "nonce": "<b64, 24 bytes>" },
+      "dek": "<b64: AEAD(plaintext = DEK, key = KEK, nonce, AAD(\"meta-slot/<vault id>/<slot id>\"))>",
+      "input": "passphrase+keyfile",
+      "keyfile": "/path/to/coffer.key"
     }
   ]
 }
@@ -74,9 +76,20 @@ Rules:
 
 - Readers MUST refuse an unknown `format_version`. Version 1 is exactly the
   value `1`.
+- Readers MUST ignore unrecognized JSON fields in any structure. Optional
+  fields added without a version bump (like `input` and `keyfile` below)
+  rely on this rule.
 - There MUST be at least one slot. Multiple slots allow several passphrases
   or key files to open the same vault.
-- Slot `id` values are stable identifiers; `rekey` rewrites the whole file.
+- Slot `id` values are stable identifiers; `rekey` rewrites the whole file,
+  re-sealing the same DEK in the same slot id with a fresh salt and nonce —
+  object data is never re-encrypted.
+- `input` selects the KDF input: `passphrase` (default, omitted on disk)
+  or `passphrase+keyfile`. For `passphrase+keyfile`, `keyfile` names the
+  key file (readers resolve a relative path against the vault directory)
+  and the KEK is `Argon2id(passphrase ‖ key-file bytes, salt, m, t, p)`.
+  The key file is deliberately NOT part of the vault: losing it locks out
+  every slot that requires it.
 - The KEK is `Argon2id(passphrase, salt, m, t, p)` for the slot's stored
   parameters. A slot succeeds if and only if its `dek` field authenticates.
 
@@ -166,11 +179,14 @@ never a mixture. Any `.tmp` file a reader finds is garbage by definition;
 **Writer lock.** A writer MUST hold the lock file `vault.lock` (exclusively
 created, removed at the end of the write operation) for the whole write:
 reading the current state, storing object files, and committing the
-manifest. A lock left behind by a crashed writer MAY be removed once its
-holder is provably gone or after a generous staleness interval (the
-reference implementation uses 15 minutes). Readers MUST ignore
-`vault.lock`, as they MUST ignore any unrecognized file in the vault root:
-only `vault.meta`, `manifest.<n>`, and `obj/` carry meaning.
+manifest. Operations that remove data (`gc`) are writers in this sense:
+they hold the lock across their scan and sweep, so an object committed by
+a concurrent push can never be mistaken for an orphan. A lock left behind
+by a crashed writer MAY be removed once its holder is provably gone or
+after a generous staleness interval (the reference implementation uses 15
+minutes). Readers MUST ignore `vault.lock`, as they MUST ignore any
+unrecognized file in the vault root: only `vault.meta`, `manifest.<n>`,
+and `obj/` carry meaning.
 
 ## 7. Corruption and tamper semantics
 

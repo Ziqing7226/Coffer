@@ -86,13 +86,14 @@ func NewManifest() *Manifest {
 // Store is an opened vault. All methods are safe for use by one goroutine;
 // the helper process uses a single-threaded conversation loop.
 type Store struct {
-	dir         string
-	meta        Meta
-	dek         []byte
-	manifest    *Manifest
-	manifestNum int
-	payloadHash string
-	lockGuard   string // content of our vault.lock, empty when unlocked
+	dir          string
+	meta         Meta
+	dek          []byte
+	manifest     *Manifest
+	manifestNum  int
+	payloadHash  string
+	lockGuard    string // content of our vault.lock, empty when unlocked
+	openedSlotID int    // key slot the current passphrase authenticated
 }
 
 // Dir returns the vault directory.
@@ -184,19 +185,41 @@ func Open(dir, passphrase string) (*Store, error) {
 	}
 	var dek []byte
 	var authErr error
+	var inputErr error
+	openedSlot := -1
 	for i := range meta.Slots {
-		dek, authErr = meta.Slots[i].Open(passphrase, meta.ID)
+		secret, serr := slotSecret(dir, meta.Slots[i], passphrase)
+		if serr != nil {
+			if inputErr == nil {
+				inputErr = serr
+			}
+			continue
+		}
+		dek, authErr = meta.Slots[i].Open(secret, meta.ID)
 		if authErr == nil {
+			openedSlot = meta.Slots[i].ID
 			break
 		}
 		dek = nil
 	}
 	if dek == nil {
+		if authErr == nil {
+			// Every slot was skipped before any derivation (e.g. all key
+			// files missing); still an authentication failure.
+			authErr = crypto.ErrAuth
+		}
+		if inputErr != nil {
+			// A slot needs input we could not provide (e.g. its key file
+			// is missing); name it so the user knows what to restore.
+			return nil, fmt.Errorf(
+				"%w: no key slot accepts this passphrase — %v; provide the missing input and retry, or clear a stale cached credential: printf 'protocol=coffer\\nhost=coffer\\npath=%s\\n\\n' | git credential reject",
+				authErr, inputErr, meta.ID)
+		}
 		return nil, fmt.Errorf(
 			"%w: no key slot accepts this passphrase — enter the correct one, or clear a stale cached credential: printf 'protocol=coffer\\nhost=coffer\\npath=%s\\n\\n' | git credential reject",
 			authErr, meta.ID)
 	}
-	s := &Store{dir: dir, meta: meta, dek: dek}
+	s := &Store{dir: dir, meta: meta, dek: dek, openedSlotID: openedSlot}
 	var lastErr error
 	for _, n := range manifestGenerations(dir) {
 		m, hash, err := s.readManifestNum(n)
