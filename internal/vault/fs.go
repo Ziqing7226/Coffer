@@ -9,9 +9,13 @@ import (
 
 // crashPoint is a fault-injection hook for tests (docs/development.md,
 // fault injection): inert unless the COFFER_CRASH environment variable names
-// this point, in which case the process exits immediately.
-func crashPoint(name string) {
+// this point, in which case the process exits immediately. The hook drops
+// the writer lock before exiting: it simulates process death, and the
+// stale-lock recovery that a real crash requires is exercised separately
+// in the lock unit tests, so crash-recovery pushes stay immediate.
+func (s *Store) crashPoint(name string) {
 	if os.Getenv("COFFER_CRASH") == name {
+		os.Remove(filepath.Join(s.dir, lockName))
 		fmt.Fprintf(os.Stderr, "coffer: crash point %q hit\n", name)
 		os.Exit(70)
 	}

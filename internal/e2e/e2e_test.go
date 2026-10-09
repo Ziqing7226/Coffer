@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Ziqing7226/Coffer/internal/crypto"
 	"github.com/Ziqing7226/Coffer/internal/vault"
@@ -46,8 +47,11 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	binDir, err = os.MkdirTemp("", "coffer-e2e-bin-")
-	if err != nil {
+	// Binaries and askpass scripts must live on an executable filesystem:
+	// TMPDIR may point at noexec media (FAT32 USB) for vault-data testing,
+	// so the build directory goes under the repo's gitignored bin/ instead.
+	binDir = filepath.Join(repoRoot, "bin", fmt.Sprintf("e2e-%d", os.Getpid()))
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -308,6 +312,185 @@ func TestDryRunPushChangesNothing(t *testing.T) {
 	}
 }
 
+// TestProgressReported verifies that push and fetch emit "coffer:" progress
+// milestones on stderr when git requests progress (--progress), and stay
+// quiet otherwise (git then sends "option progress false").
+func TestProgressReported(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+
+	out := git(t, src, nil, "push", "--progress", "-u", "origin", "main")
+	if !strings.Contains(out, "coffer: ") {
+		t.Fatalf("push --progress lacks coffer milestones: %s", out)
+	}
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	out = git(t, t.TempDir(), nil, "clone", "--progress", "-q", vaultURL(vaultDir), clone)
+	if !strings.Contains(out, "coffer: ") {
+		t.Fatalf("clone --progress lacks coffer milestones: %s", out)
+	}
+
+	out = git(t, src, nil, "push", "-q", "origin", "main")
+	if strings.Contains(out, "coffer: ") {
+		t.Fatalf("quiet push unexpectedly reported progress: %s", out)
+	}
+}
+
+// TestCredentialApprovedAfterSuccess verifies that a successful
+// authentication is reported to git (git credential approve), so a
+// configured credential helper remembers the passphrase — and that a wrong
+// passphrase is never approved, so nothing stale gets cached.
+func TestCredentialApprovedAfterSuccess(t *testing.T) {
+	// Neutralize host-level credential helpers (e.g. Git Credential
+	// Manager, configured system-wide on Windows runners) so the test sees
+	// exactly the repository's store helper. Point at a real empty file:
+	// "/dev/null" is not a valid path for the native Windows git.
+	emptyCfg := filepath.Join(t.TempDir(), "empty-gitconfig")
+	if err := os.WriteFile(emptyCfg, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	isolated := []string{"GIT_CONFIG_GLOBAL=" + emptyCfg, "GIT_CONFIG_SYSTEM=" + emptyCfg}
+
+	credFile := filepath.Join(t.TempDir(), "creds")
+
+	vaultDir := newVault(t)
+	meta, err := vault.ReadMeta(vaultDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	// git runs a credential helper through a shell: backslashes in an
+	// unquoted --file value would be eaten there, so use forward slashes
+	// (valid on Windows too).
+	git(t, src, nil, "config", "credential.helper", "store --file="+filepath.ToSlash(credFile))
+
+	pushOut := git(t, src, isolated, "push", "-q", "-u", "origin", "main")
+	data, err := os.ReadFile(credFile)
+	if err != nil {
+		// Flatten: CI annotations are single-line.
+		t.Fatalf("credential helper wrote nothing after a successful push: %v; push output: %s",
+			err, strings.ReplaceAll(strings.TrimSpace(pushOut), "\n", " | "))
+	}
+	// credential-store serializes as a URL (coffer://coffer:<pass>@coffer/<id>);
+	// assert on content, not on the serialization format.
+	for _, want := range []string{meta.ID, passphrase} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("stored credential lacks %q:\n%s", want, data)
+		}
+	}
+
+	// A rejected passphrase must not be approved.
+	credFile2 := filepath.Join(t.TempDir(), "creds")
+	vaultDir2 := newVault(t)
+	src2 := newRepo(t, "src2")
+	git(t, src2, nil, "remote", "add", "origin", vaultURL(vaultDir2))
+	git(t, src2, nil, "config", "credential.helper", "store --file="+filepath.ToSlash(credFile2))
+	gitFail(t, src2, append([]string{"GIT_ASKPASS=" + wrongPass}, isolated...), "push", "origin", "main")
+	if _, err := os.Stat(credFile2); err == nil {
+		d, _ := os.ReadFile(credFile2)
+		t.Fatalf("rejected passphrase was approved and cached:\n%s", d)
+	}
+}
+
+// TestWriterLockBlocksAndRecovers verifies the vault writer lock end to
+// end: a fresh foreign lock makes pushes fail with an actionable message
+// and leaves the vault untouched; a stale lock is stolen so operation
+// resumes without manual cleanup.
+func TestWriterLockBlocksAndRecovers(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	git(t, src, nil, "push", "-q", "-u", "origin", "main")
+	tip := rev(t, src, "main")
+
+	lock := filepath.Join(vaultDir, "vault.lock")
+	fresh := []byte("host=someone-else\npid=999999\nstarted=" + time.Now().UTC().Format(time.RFC3339) + "\n")
+	if err := os.WriteFile(lock, fresh, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
+	out := gitFail(t, src, nil, "push", "--progress", "origin", "main")
+	if !strings.Contains(out, "another coffer operation") {
+		t.Fatalf("blocked push lacks lock diagnostic: %s", out)
+	}
+	// The aborted push must not end with a "done" milestone that reads
+	// like success.
+	if strings.Contains(out, "coffer: done in") {
+		t.Fatalf("aborted push reported completion: %s", out)
+	}
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != tip {
+		t.Fatal("blocked push changed the vault")
+	}
+
+	// The lock outlived its staleness window (simulating a crashed holder:
+	// started long ago): the next push steals it and succeeds.
+	old := time.Now().UTC().Add(-20 * time.Minute)
+	stale := []byte("host=someone-else\npid=999999\nstarted=" + old.Format(time.RFC3339) + "\n")
+	if err := os.WriteFile(lock, stale, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(lock, old, old); err != nil {
+		t.Fatal(err)
+	}
+	git(t, src, nil, "push", "-q", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("push after stale-lock steal did not land")
+	}
+	if _, err := os.Stat(lock); err == nil {
+		t.Fatal("lock file not removed after the push completed")
+	}
+}
+
+// TestAtomicPushAndForceWithLease: --atomic pushes land every ref of the
+// batch or none; --force-with-lease is a git-side check against the refs we
+// advertise, so a stale lease is rejected before the vault is touched.
+func TestAtomicPushAndForceWithLease(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
+	git(t, src, nil, "branch", "feature")
+	commit(t, src, "feature.txt", "feature\n", "commit feature")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+
+	git(t, src, nil, "push", "-q", "--atomic", "origin", "main", "feature")
+	s := openVault(t, vaultDir)
+	if got := s.Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("atomic push: main mismatch")
+	}
+	if got := s.Manifest().Refs["refs/heads/feature"].OID; got != rev(t, src, "feature") {
+		t.Fatal("atomic push: feature mismatch")
+	}
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	git(t, t.TempDir(), nil, "clone", "-q", vaultURL(vaultDir), clone)
+	// Committing inside the clone needs an identity: CI runner images ship
+	// without a global git user.
+	git(t, clone, nil, "config", "user.name", testGitName)
+	git(t, clone, nil, "config", "user.email", testGitMail)
+	commit(t, clone, "file.txt", "one\ntwo\nthree\n", "commit three")
+
+	// Pretend the clone's view of origin/main is stale: force-with-lease
+	// must reject the push and leave the vault untouched.
+	git(t, clone, nil, "update-ref", "refs/remotes/origin/main", "refs/remotes/origin/main~1")
+	out := gitFail(t, clone, nil, "push", "--force-with-lease", "origin", "main")
+	if !strings.Contains(out, "rejected") && !strings.Contains(out, "stale") {
+		t.Fatalf("stale lease not rejected: %s", out)
+	}
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("stale-lease push changed the vault")
+	}
+
+	// With the lease refreshed, the same push succeeds.
+	git(t, clone, nil, "fetch", "-q", "origin")
+	git(t, clone, nil, "push", "-q", "--force-with-lease", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, clone, "main") {
+		t.Fatal("force-with-lease push did not land")
+	}
+}
+
 func TestWrongPassphraseRejected(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")
@@ -316,6 +499,11 @@ func TestWrongPassphraseRejected(t *testing.T) {
 	out := gitFail(t, src, []string{"GIT_ASKPASS=" + wrongPass}, "push", "origin", "main")
 	if !strings.Contains(out, "authentication failed") && !strings.Contains(out, "ErrAuth") {
 		t.Fatalf("push with wrong passphrase lacks precise error: %s", out)
+	}
+	// The remedy must be a command that actually evicts the credential:
+	// git credential reject reads attributes on stdin, not a URL argument.
+	if !strings.Contains(out, "git credential reject") || !strings.Contains(out, "printf") {
+		t.Fatalf("rejected passphrase lacks the eviction recipe: %s", out)
 	}
 	if _, err := vault.Open(vaultDir, passphrase); err != nil {
 		t.Fatalf("vault damaged by rejected push: %v", err)

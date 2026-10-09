@@ -9,12 +9,14 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Ziqing7226/Coffer/internal/packproc"
 	"github.com/Ziqing7226/Coffer/internal/vault"
@@ -36,8 +38,21 @@ type session struct {
 	vaultDir string
 	store    *vault.Store
 	dryRun   bool
+	atomic   bool
+	progress bool
 	in       *bufio.Reader
 	out      *bufio.Writer
+}
+
+// progressf emits a progress milestone to stderr. Git inherits the helper's
+// stderr straight to the user's terminal and asks for progress via
+// "option progress true" (transport-helper.c), so milestones print only
+// when git requested them — e.g. push/fetch run with --progress.
+func (s *session) progressf(format string, args ...any) {
+	if !s.progress {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "coffer: "+format+"\n", args...)
 }
 
 func (s *session) loop() error {
@@ -117,6 +132,9 @@ func (s *session) openStore() error {
 	}
 	meta, err := vault.ReadMeta(s.vaultDir)
 	if err != nil {
+		if errors.Is(err, vault.ErrNotVault) {
+			return fmt.Errorf("%v\nhint: the remote URL must point at an existing vault; create one with: coffer init %s", err, s.vaultDir)
+		}
 		return err
 	}
 	pass, err := GetPassphrase(meta.ID)
@@ -126,6 +144,12 @@ func (s *session) openStore() error {
 	st, err := vault.Open(s.vaultDir, pass)
 	if err != nil {
 		return err
+	}
+	// The passphrase authenticated: let git's credential helpers remember
+	// it if the user configured any (cache, osxkeychain, wincred, store).
+	// Best-effort — a failure to remember must not fail the operation.
+	if err := ApprovePassphrase(meta.ID, pass); err != nil {
+		fmt.Fprintf(os.Stderr, "git-remote-coffer: %v (continuing without caching)\n", err)
 	}
 	s.store = st
 	return nil
@@ -150,9 +174,34 @@ func (s *session) handleOption(arg string) {
 		default:
 			s.replySingle("error dry-run expects true or false")
 		}
-	case "progress", "verbosity", "object-format":
-		// Acknowledged; progress reporting and verbosity are cosmetic for
-		// now, and the object-format keyword is always emitted in list.
+	case "progress":
+		switch value {
+		case "true":
+			s.progress = true
+			s.replySingle("ok")
+		case "false":
+			s.progress = false
+			s.replySingle("ok")
+		default:
+			s.replySingle("error progress expects true or false")
+		}
+	case "atomic":
+		// Truthful: all refs of a batch land in one manifest rename, and
+		// under atomic any per-ref error skips storing and committing
+		// entirely — git's all-or-nothing contract for --atomic.
+		switch value {
+		case "true":
+			s.atomic = true
+			s.replySingle("ok")
+		case "false":
+			s.atomic = false
+			s.replySingle("ok")
+		default:
+			s.replySingle("error atomic expects true or false")
+		}
+	case "verbosity", "object-format":
+		// Acknowledged; verbosity is cosmetic and the object-format keyword
+		// is always emitted in list.
 		s.replySingle("ok")
 	default:
 		s.replySingle("unsupported")
@@ -202,12 +251,23 @@ func (s *session) serveFetch(oids []string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("object %s is not in the vault inventory", oid)
+			return fmt.Errorf("object %s is not in the vault inventory — the manifest is inconsistent with the request; inspect the vault with `coffer status`", oid)
 		}
 	}
 	if len(m.Packs) == 0 {
 		return fmt.Errorf("vault has no object files to serve")
 	}
+
+	started := time.Now()
+	names := make([]string, 0, len(m.Packs))
+	var plainBytes int64
+	for name, pack := range m.Packs {
+		names = append(names, name)
+		plainBytes += pack.Size
+	}
+	sort.Strings(names)
+	s.progressf("serving %d objects from %d vault files (%s plaintext)",
+		len(oids), len(names), humanBytes(plainBytes))
 
 	// Decrypt ALL stored packs into the scratch repository: pack-objects
 	// --revs walks the full history of the requested tips, and parents may
@@ -220,7 +280,8 @@ func (s *session) serveFetch(oids []string) error {
 	defer cleanup()
 
 	packDir := filepath.Join(repo, "objects", "pack")
-	for name := range m.Packs {
+	for i, name := range names {
+		s.progressf("decrypting vault file %s (%d/%d)", name, i+1, len(names))
 		rd, err := s.store.ReadObject(name)
 		if err != nil {
 			return err
@@ -228,16 +289,18 @@ func (s *session) serveFetch(oids []string) error {
 		dst := filepath.Join(packDir, "pack-"+name+".pack")
 		err = writeAllAndClose(rd, dst)
 		if err != nil {
-			return err
+			return fmt.Errorf("vault file %s: %v — the medium may be damaged; restore this file from a backup of the vault, then retry", name, err)
 		}
 		if err := packproc.IndexPackInDir(repo, dst); err != nil {
 			return err
 		}
 	}
 
+	s.progressf("importing objects into repository")
 	if err := packproc.PipePackToCaller(repo, oids); err != nil {
 		return err
 	}
+	s.progressf("done in %s", time.Since(started).Round(time.Millisecond))
 	fmt.Fprintln(s.out) // batch complete
 	s.out.Flush()
 	return nil
@@ -246,9 +309,32 @@ func (s *session) serveFetch(oids []string) error {
 // applyPush applies a push batch: resolve ref updates, pull the missing
 // objects from the caller's repository, store them as one encrypted object
 // file, and commit the manifest (spec §6 ordering: objects, then manifest).
-func (s *session) applyPush(specs []string) error {
+func (s *session) applyPush(specs []string) (err error) {
 	if err := s.openStore(); err != nil {
 		return err
+	}
+	started := time.Now()
+	defer func() {
+		// Only a completed push is "done": an aborted one must not end
+		// with a timing line that reads like success.
+		if err == nil && !s.dryRun {
+			s.progressf("done in %s", time.Since(started).Round(time.Millisecond))
+		}
+	}()
+
+	// Serialize writers end-to-end: the exclusions and the manifest commit
+	// below must see a stable vault state, or a concurrent push could be
+	// lost. Under the lock, adopt whatever other writers committed.
+	if !s.dryRun {
+		s.progressf("acquiring vault writer lock")
+		release, err := s.store.AcquireLock()
+		if err != nil {
+			return err
+		}
+		defer release()
+		if err := s.store.Reload(); err != nil {
+			return err
+		}
 	}
 	m := s.store.Manifest()
 	byName := make(map[string]vault.RefVal, len(m.Refs))
@@ -267,11 +353,13 @@ func (s *session) applyPush(specs []string) error {
 
 	var report []string
 	pushed := 0
+	failed := false
 	for _, spec := range specs {
 		spec = strings.TrimPrefix(spec, "+")
 		i := strings.Index(spec, ":")
 		if i < 0 {
 			report = append(report, fmt.Sprintf("error %s malformed push specification", spec))
+			failed = true
 			continue
 		}
 		src, dst := spec[:i], spec[i+1:]
@@ -285,6 +373,7 @@ func (s *session) applyPush(specs []string) error {
 			resolved, err := packproc.ResolveInCaller(src)
 			if err != nil {
 				report = append(report, fmt.Sprintf("error %s %v", dst, err))
+				failed = true
 				continue
 			}
 			oid = resolved
@@ -295,12 +384,13 @@ func (s *session) applyPush(specs []string) error {
 		report = append(report, "ok "+dst)
 	}
 
-	if pushed > 0 && !s.dryRun {
-		if err := s.storeNewObjects(revs); err != nil {
-			return err
+	// Under --atomic, one failed ref means nothing is stored or committed.
+	if !s.dryRun && !(s.atomic && failed) {
+		if pushed > 0 {
+			if err := s.storeNewObjects(revs); err != nil {
+				return err
+			}
 		}
-	}
-	if !s.dryRun {
 		m.Refs = byName
 		if err := s.store.Commit(m); err != nil {
 			return err
@@ -315,6 +405,7 @@ func (s *session) applyPush(specs []string) error {
 // file. Packs with zero objects are not stored: pushing a ref that points
 // at objects the vault already has yields an empty pack.
 func (s *session) storeNewObjects(revs []string) error {
+	s.progressf("reading objects from repository")
 	packPath, cleanup, err := packproc.BuildPack(revs)
 	if err != nil {
 		return err
@@ -343,12 +434,14 @@ func (s *session) storeNewObjects(revs []string) error {
 	if err != nil {
 		return err
 	}
+	s.progressf("storing %d objects (%s plaintext)", count, humanBytes(st.Size()))
 
 	hasher := sha256.New()
 	name, err := s.store.WriteObject(io.TeeReader(f, hasher))
 	if err != nil {
 		return err
 	}
+	s.progressf("committed vault file %s", name)
 	s.store.Manifest().Packs[name] = vault.PackInfo{
 		SHA256:  hex.EncodeToString(hasher.Sum(nil)),
 		Size:    st.Size(),
@@ -368,6 +461,19 @@ func writeAllAndClose(rd io.ReadCloser, dst string) error {
 		err = cerr
 	}
 	return err
+}
+
+func humanBytes(n int64) string {
+	switch {
+	case n >= 1<<30:
+		return fmt.Sprintf("%.1f GiB", float64(n)/(1<<30))
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f KiB", float64(n)/(1<<10))
+	default:
+		return fmt.Sprintf("%d B", n)
+	}
 }
 
 func oidInList(list []string, oid string) bool {

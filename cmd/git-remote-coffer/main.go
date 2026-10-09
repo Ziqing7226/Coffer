@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/Ziqing7226/Coffer/internal/proto"
@@ -13,6 +14,10 @@ import (
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "git-remote-coffer: missing URL argument")
+		os.Exit(128)
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		fmt.Fprintln(os.Stderr, "git-remote-coffer: git executable not found on PATH — Coffer drives git's plumbing commands; install git and retry")
 		os.Exit(128)
 	}
 	// The last argument is always the URL/address: either a configured

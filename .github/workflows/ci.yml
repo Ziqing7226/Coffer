@@ -18,9 +18,28 @@ jobs:
         with:
           go-version: stable
       - name: Vet
-        run: go vet ./...
+        shell: bash
+        run: |
+          set +e
+          go vet ./... > /tmp/coffer-vet.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then sed 's/^/::error::VET: /' /tmp/coffer-vet.log | head -15; fi
+          exit "$status"
       - name: Test (unit + golden e2e against real git)
-        run: go test ./... -v
+        shell: bash
+        run: |
+          set +e
+          go test ./... -v > /tmp/coffer-test.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            { grep -E '^(--- FAIL|# |FAIL|panic:|fatal)|_test\.go:[0-9]+:' /tmp/coffer-test.log | head -10
+              echo ---TAIL---
+              tail -6 /tmp/coffer-test.log
+            } | sed 's/^/::error::TEST: /'
+          fi
+          exit "$status"
       - name: Cross-builds
         shell: bash
         run: |

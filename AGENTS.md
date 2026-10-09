@@ -9,11 +9,12 @@ that lets unmodified git push to and clone from a passphrase-protected vault
 directory on a secondary or removable disk. Linux, Windows, and macOS are
 first-class; VSCode works because git works.
 
-**Current state: Phase 1 (MVP) implemented** — vault format v1, the
-`git-remote-coffer` helper, the `coffer` CLI, and CI on Linux, Windows,
-and macOS.
-docs/development.md tracks phase status and what remains (hardening, key
-management, packaging).
+**Current state: Phase 2 (hardening) implemented** — vault format v1,
+the `git-remote-coffer` helper (progress milestones, writer lock,
+`--atomic`/`--force-with-lease`, credential approval), the `coffer` CLI,
+and CI on Linux, Windows, and macOS.
+docs/development.md tracks phase status and what remains (a VSCode UI
+pass, key management, packaging).
 
 ## Iron Rule — English only
 

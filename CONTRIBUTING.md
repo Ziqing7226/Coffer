@@ -12,10 +12,10 @@ enforces this on changed files.
 
 ## Before you invest time
 
-- **Now (specification phase):** the best contributions are issues that find
-  holes, ambiguities, or over-engineering in the documentation, and pull
-  requests that fix it.
-- **From Phase 1 onward:** code follows docs/development.md. Check that the
+- **Now:** the best contributions are issues that find holes, ambiguities,
+  or over-engineering in the documentation and implementation, and pull
+  requests that fix them.
+- **Implementation work:** code follows docs/development.md. Check that the
   relevant phase is active before proposing implementation, and open an
   issue first for anything not already covered by one.
 
