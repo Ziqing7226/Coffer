@@ -7,8 +7,8 @@ the specifications are contracts.
 
 Every artifact produced in this repository — code, comments, documentation,
 commit messages, issues, pull request descriptions, and release notes — must
-be written entirely in English. No exceptions, no mixed language. CI
-enforces this on changed files.
+be written entirely in English. No exceptions, no mixed language. Reviewers
+and release checks treat this as a hard requirement.
 
 ## Before you invest time
 

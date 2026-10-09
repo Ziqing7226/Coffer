@@ -41,6 +41,10 @@ no administrator rights are needed anywhere.
 
 ## Quick start
 
+Pick the vault path for your platform — Linux `/mnt/usb/…`,
+macOS `/Volumes/<volume>/…`, Windows `D:\backups\…` — and substitute it
+in the commands below (shown with the Linux path):
+
 ```console
 $ coffer init /mnt/usb/myproject.coffer
 Enter passphrase for the new vault: ********

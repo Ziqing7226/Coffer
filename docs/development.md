@@ -147,13 +147,14 @@ run in CI.
   permission-less, case-insensitive filesystem end to end.
 - **Git version matrix**: the validation floor (git 2.30, the first release
   with the helper `object-format` capability) and current git, across all
-  supported operating systems. Tested versions are recorded per release,
-  sourced from the CI matrix — never asserted by hand.
+  supported operating systems. The exact versions exercised per release are
+  the ones in the CI runs for that release tag — public, never asserted by
+  hand.
 
 ## Conventions
 
-- All artifacts in English — see CONTRIBUTING.md; CI enforces it on changed
-  files.
+- All artifacts in English — see CONTRIBUTING.md; reviews treat it as a
+  hard requirement.
 - Conventional Commits (`docs:`, `feat:`, `fix:`, `test:`, `refactor:`).
 - `gofmt` / `golangci-lint` clean; no generated files committed.
 - Specification changes go through a PR that bumps the relevant version
