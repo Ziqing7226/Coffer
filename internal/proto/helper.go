@@ -8,8 +8,8 @@ package proto
 import (
 	"bufio"
 	"crypto/sha256"
-	"errors"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
