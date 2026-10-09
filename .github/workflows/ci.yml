@@ -64,22 +64,33 @@ jobs:
           GOOS=darwin GOARCH=arm64 go build ./...
 
   # The supported git floor is 2.30 (the first release with the helper
-  # object-format capability) — this leg runs the whole suite against it,
-  # so the claim is tested, not asserted.
+  # object-format capability) — this leg builds git 2.30.0 from source
+  # and runs the whole suite against it, so the claim is tested, not
+  # asserted.
   floor-git-230:
     runs-on: ubuntu-latest
     container:
-      image: golang:1.27-bullseye
+      image: golang:1.27-bookworm
     steps:
-      - name: Install git 2.30 (Debian bullseye)
+      - name: Build git 2.30.0 from source
         shell: bash
         run: |
           set -euo pipefail
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git ca-certificates
+          apt-get install -y -qq --no-install-recommends \
+            ca-certificates curl make gcc libssl-dev zlib1g-dev \
+            libcurl4-openssl-dev gettext
+          curl -fsSL https://www.kernel.org/pub/software/scm/git/git-2.30.0.tar.xz \
+            -o /tmp/git.tar.xz
+          tar -xJf /tmp/git.tar.xz -C /tmp
+          make -C /tmp/git-2.30.0 -j"$(nproc)" NO_TCLTK=1 NO_GETTEXT=1 prefix=/usr/local >/tmp/git-build.log 2>&1
+          make -C /tmp/git-2.30.0 NO_TCLTK=1 NO_GETTEXT=1 prefix=/usr/local install >/dev/null
           git --version
           case "$(git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
       - uses: actions/checkout@v5
+        env:
+          # Ensure the freshly built 2.30 is the git the tests exercise.
+          PATH: /usr/local/bin:/usr/bin:/bin
       - name: Full suite against git 2.30
         shell: bash
         run: |
