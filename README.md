@@ -65,27 +65,27 @@ writes them into the vault; on fetch it does the reverse, importing
 decrypted objects back into your object database. Git never notices the
 difference — which is why every git client stays compatible. Requirements:
 stock git ≥ 2.30 (where the helper `object-format` capability first
-appeared) and the two Coffer binaries on `PATH`. The design and its
+appeared) and the two GitCoffer binaries on `PATH`. The design and its
 rationale are in [docs/architecture.md](docs/architecture.md); the on-disk
 layout is normative in [docs/format-spec.md](docs/format-spec.md).
 
 ## Install
 
 Download a release for your platform — Linux, Windows, macOS, amd64 or
-arm64 — from the [releases page](https://github.com/Ziqing7226/Coffer/releases),
-unpack, and put both `coffer` and `git-remote-coffer` on `PATH` (git finds
+arm64 — from the [releases page](https://github.com/Ziqing7226/GitCoffer/releases),
+unpack, and put both `gitcoffer` and `git-remote-coffer` on `PATH` (git finds
 the helper through `PATH`; no administrator rights needed). Verify:
 
 ```console
-$ coffer version
+$ gitgitcoffer version
 coffer 1.0.0-pre
 ```
 
 Or build from source with Go ≥ 1.27:
 
 ```console
-$ go install github.com/Ziqing7226/Coffer/cmd/coffer@v1.0.0-pre
-$ go install github.com/Ziqing7226/Coffer/cmd/git-remote-coffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0-pre
 ```
 
 Package-manager entries (Homebrew, scoop, winget) arrive with the stable
@@ -94,7 +94,7 @@ Package-manager entries (Homebrew, scoop, winget) arrive with the stable
 ## Quick start
 
 ```console
-$ coffer init /mnt/usb/myproject.coffer
+$ gitcoffer init /mnt/usb/myproject.coffer
 Enter passphrase for the new vault: ********
 Repeat passphrase: ********
 Vault created: /mnt/usb/myproject.coffer
@@ -121,15 +121,15 @@ only git, Coffer, and the passphrase are needed:
 
 | Command | Purpose |
 |---|---|
-| `coffer init <dir>` | create a new vault |
-| `coffer status <dir>` | inspect: format, slots, refs, packs |
-| `coffer rekey <dir>` | change the passphrase (data is never re-encrypted) |
-| `coffer key add / remove / list` | manage key slots; optional key-file second factor |
-| `coffer gc [--dry-run] <dir>` | reclaim space from interrupted pushes and old generations |
-| `coffer fsck <dir>` | verify every structure of the vault |
-| `coffer doctor <dir>` | check the environment and the vault |
-| `coffer export-bundle <dir> <file>` | export the vault as a plain git bundle — the exit path |
-| `coffer version` | print the build version |
+| `gitcoffer init <dir>` | create a new vault |
+| `gitcoffer status <dir>` | inspect: format, slots, refs, packs |
+| `gitcoffer rekey <dir>` | change the passphrase (data is never re-encrypted) |
+| `gitcoffer key add / remove / list` | manage key slots; optional key-file second factor |
+| `gitcoffer gc [--dry-run] <dir>` | reclaim space from interrupted pushes and old generations |
+| `gitcoffer fsck <dir>` | verify every structure of the vault |
+| `gitcoffer doctor <dir>` | check the environment and the vault |
+| `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle — the exit path |
+| `gitcoffer version` | print the build version |
 
 Full walkthrough — keys and recovery, maintenance, troubleshooting:
 [docs/user-guide.md](docs/user-guide.md).

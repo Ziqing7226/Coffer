@@ -8,7 +8,7 @@ management, recovery on a new machine, and maintenance.
 ## Requirements
 
 - git ≥ 2.30 on `PATH`
-- The two Coffer binaries, `git-remote-coffer` and `coffer`, on `PATH`
+- The two GitCoffer binaries, `git-remote-coffer` and `gitcoffer`, on `PATH`
   (git discovers the helper through `PATH`)
 - A vault on a *different physical disk* than your working copy — that is
   the point: one disk failure must not destroy both
@@ -16,11 +16,11 @@ management, recovery on a new machine, and maintenance.
 ## Install
 
 **Download a release** (Linux, Windows, macOS; amd64 and arm64) from the
-[releases page](https://github.com/Ziqing7226/Coffer/releases), unpack, and
+[releases page](https://github.com/Ziqing7226/GitCoffer/releases), unpack, and
 put both binaries on `PATH`. Verify with:
 
 ```console
-$ coffer version
+$ gitgitcoffer version
 coffer 1.0.0-pre
 $ git-remote-coffer          # run with no arguments, prints its usage note;
                              # normally git invokes it for you
@@ -29,8 +29,8 @@ $ git-remote-coffer          # run with no arguments, prints its usage note;
 **Build from source** with Go ≥ 1.27:
 
 ```console
-$ go install github.com/Ziqing7226/Coffer/cmd/coffer@v1.0.0-pre
-$ go install github.com/Ziqing7226/Coffer/cmd/git-remote-coffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0-pre
 ```
 
 Package-manager entries (Homebrew, scoop, winget) ship with the stable
@@ -46,7 +46,7 @@ macOS `/Volumes/<volume>/…`, Windows `D:\backups\…` — and substitute it
 in the commands below (shown with the Linux path):
 
 ```console
-$ coffer init /mnt/usb/myproject.coffer
+$ gitcoffer init /mnt/usb/myproject.coffer
 Enter passphrase for the new vault: ********
 Repeat passphrase: ********
 Vault created: /mnt/usb/myproject.coffer
@@ -95,17 +95,17 @@ unchanged. The on-disk format is specified and frozen in
 
 | Command | Purpose |
 |---|---|
-| `coffer init <dir>` | create a new vault (prompts for a new passphrase) |
-| `coffer status <dir>` | inspect a vault: format, slots, refs, packs |
-| `coffer rekey <dir>` | change the passphrase of the slot it opens |
-| `coffer key add <dir> [-keyfile <path>]` | add a passphrase slot, optionally requiring a key file as a second factor |
-| `coffer key remove <dir> <id>` | remove a key slot (never the last one) |
-| `coffer key list <dir>` | list key slots (no passphrase needed) |
-| `coffer gc [--dry-run] <dir>` | remove orphaned objects, temp files, old manifest generations (`--dry-run` reports only) |
-| `coffer fsck <dir>` | verify every structure of the vault |
-| `coffer doctor <dir>` | check the environment and the vault, and report |
-| `coffer export-bundle <dir> <file>` | export the vault as a plain git bundle |
-| `coffer version` | print the build version |
+| `gitcoffer init <dir>` | create a new vault (prompts for a new passphrase) |
+| `gitcoffer status <dir>` | inspect a vault: format, slots, refs, packs |
+| `gitcoffer rekey <dir>` | change the passphrase of the slot it opens |
+| `gitcoffer key add <dir> [-keyfile <path>]` | add a passphrase slot, optionally requiring a key file as a second factor |
+| `gitcoffer key remove <dir> <id>` | remove a key slot (never the last one) |
+| `gitcoffer key list <dir>` | list key slots (no passphrase needed) |
+| `gitcoffer gc [--dry-run] <dir>` | remove orphaned objects, temp files, old manifest generations (`--dry-run` reports only) |
+| `gitcoffer fsck <dir>` | verify every structure of the vault |
+| `gitcoffer doctor <dir>` | check the environment and the vault, and report |
+| `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle |
+| `gitcoffer version` | print the build version |
 
 Passphrase prompts read from the terminal (hidden); when stdin is not a
 terminal — scripts, CI — each prompt reads one line, so every subcommand
@@ -117,14 +117,14 @@ is scriptable.
 key file, if that slot requires one) is the only way in. A key file adds
 a second factor; losing it locks out every slot that requires it.
 
-- Rotate your passphrase on a schedule: `coffer rekey` rewrites only the
+- Rotate your passphrase on a schedule: `gitcoffer rekey` rewrites only the
   tiny `vault.meta` — object data is never re-encrypted, so it is fast at
   any vault size.
 - A rekey makes cached credentials stale. If pushes suddenly fail with
   *authentication failed* after a rekey, clear the cached value:
   `printf 'protocol=coffer\nhost=coffer\npath=<vault id>\n\n' | git credential reject`
 - Share access with a collaborator or machine by adding a slot
-  (`coffer key add`) instead of sharing one passphrase.
+  (`gitcoffer key add`) instead of sharing one passphrase.
 
 **Recovering on a fresh machine:** install git and Coffer, mount the
 medium, `git clone coffer::<path>`, enter the passphrase. Keeping a copy
@@ -133,10 +133,10 @@ bootstrapping, never a dependency.
 
 ## Leaving, and being sure you can
 
-`coffer export-bundle <vault> <file.bundle>` decrypts the vault into a
+`gitgitcoffer export-bundle <vault> <file.bundle>` decrypts the vault into a
 standard git bundle that stock git alone can clone or verify — the exit
 path needs neither Coffer nor the vault format. The bundle file itself
-is plaintext, so store it accordingly. `coffer doctor <vault>` gives a
+is plaintext, so store it accordingly. `gitgitcoffer doctor <vault>` gives a
 one-shot health report of the environment and the vault; boundaries of
 what is supported (LFS content, submodules, sha256, shallow clones,
 FAT32 file-size caps) are listed in
@@ -144,10 +144,10 @@ FAT32 file-size caps) are listed in
 
 ## Maintenance
 
-- `coffer fsck` verifies every AEAD seal, the manifest chain, and every
+- `gitcoffer fsck` verifies every AEAD seal, the manifest chain, and every
   object's checksum; run it when a medium had a rough day. It reports the
   first divergence per structure and never attempts recovery.
-- `coffer gc` reclaims space from interrupted pushes (orphaned object
+- `gitcoffer gc` reclaims space from interrupted pushes (orphaned object
   files), leftover temp files, and old manifest generations. It refuses to
   delete anything if any manifest generation fails to decrypt;
   `--dry-run` reports without deleting. One honest caveat: the vault is a
@@ -161,7 +161,7 @@ FAT32 file-size caps) are listed in
 
 | Symptom | Meaning and fix |
 |---|---|
-| `not a coffer vault` on push | The remote URL does not point at a vault. Check the path, or run `coffer init`. |
+| `not a coffer vault` on push | The remote URL does not point at a vault. Check the path, or run `gitcoffer init`. |
 | `authentication failed` on every operation | Wrong passphrase, or a credential helper answers with a stale value (common right after a rekey). Evict it with the `git credential reject` line above. |
 | `key file ... no such file` | A second-factor slot's key file is missing at its recorded path. Restore it; nothing else will unlock that slot. |
 | `key file ... is not a regular file` | The recorded path is a symlink, device, or oversized (>1 MiB) file. Coffer refuses such paths because they come from on-media metadata — point the slot at the real file instead. |
