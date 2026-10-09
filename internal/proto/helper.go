@@ -157,11 +157,25 @@ func (s *session) openStore() error {
 
 func (s *session) handleOption(arg string) {
 	f := strings.Fields(arg)
-	if len(f) != 2 {
+	if len(f) == 0 {
 		s.replySingle("error malformed option")
 		return
 	}
-	name, value := f[0], f[1]
+	name := f[0]
+	// A value-less line is a support probe: older git (2.30) sends
+	// "option object-format" with no value and treats a non-ok answer as
+	// fatal. Answer ok for known options and parse the value only when
+	// one is present.
+	if len(f) == 1 {
+		switch name {
+		case "dry-run", "progress", "atomic", "verbosity", "object-format":
+			s.replySingle("ok")
+		default:
+			s.replySingle("unsupported")
+		}
+		return
+	}
+	value := f[1]
 	switch name {
 	case "dry-run":
 		switch value {

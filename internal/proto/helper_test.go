@@ -191,3 +191,39 @@ func TestParseCredentialTrimsWindowsLineEndings(t *testing.T) {
 		t.Fatalf("empty password with CR accepted: %q", got)
 	}
 }
+
+// TestValuelessOptionProbe pins git 2.30's behavior: it sends
+// "option object-format" with NO value as a support probe and treats a
+// non-ok answer as fatal — every push died with 128 on that git until
+// the probe form was accepted. Modern git sends values; the probe form
+// only appears on the supported floor, so the golden suite cannot catch
+// a regression here — this session-level test is the guard.
+func TestValuelessOptionProbe(t *testing.T) {
+	vaultDir := t.TempDir()
+	if _, err := vault.Create(vaultDir, "test-pass", crypto.Argon2Params{Algo: crypto.KDFAlgo, M: 16, T: 1, P: 1}); err != nil {
+		t.Fatal(err)
+	}
+	out := driveSession(t, t.TempDir(), vaultDir,
+		"option object-format",
+		"option progress",
+		"option dry-run",
+		"option atomic",
+		"option no-such-option",
+	)
+	// Known options: probes answer ok. Unknown: unsupported.
+	want := []string{"ok", "ok", "ok", "ok", "unsupported"}
+	got := []string{}
+	for _, line := range strings.Split(out, "\n") {
+		if line != "" {
+			got = append(got, line)
+		}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("probe answers = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("probe answer %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
