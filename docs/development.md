@@ -6,7 +6,8 @@ code follows in the phases below. Phase scope is fixed; dates are not.
 ## Stack
 
 - **Language: Go.** Static single-binary cross-compilation (linux/amd64,
-  linux/arm64, windows/amd64), mature crypto in the standard library and
+  linux/arm64, windows/amd64, darwin/amd64, darwin/arm64), mature crypto
+  in the standard library and
   `golang.org/x/crypto` (argon2, chacha20poly1305), and straightforward
   subprocess glue for git plumbing.
 - **Dependencies stay minimal**: stdlib plus `golang.org/x/crypto` for the
@@ -40,14 +41,15 @@ Prove the risky unknowns with throwaway code.
       (no crypto yet).
 - [x] Passphrase prompt observed through `git credential fill` — terminal
       prompt and GIT_ASKPASS paths, on Linux (branch `phase-0`).
-- [ ] The same prompt observed inside the VSCode UI, and on Windows.
+- [ ] The same prompt observed inside the VSCode UI, and on Windows and
+      macOS.
 - [ ] Windows: helper discovery from VSCode's bundled git confirmed;
       binary stdio confirmed free of CRLF issues.
 - [ ] Validation floor confirmed against a pinned git 2.30 build
       (container) — protocol behavior, not just compilation.
 
-Exit criteria: a push initiated from VSCode reaches our code on both
-operating systems.
+Exit criteria: a push initiated from VSCode reaches our code on every
+supported operating system.
 
 ### Phase 1 — MVP (weeks)
 
@@ -56,13 +58,14 @@ operating systems.
       `object-format`.
 - [x] `coffer init` and `coffer status`.
 - [x] CI (GitHub Actions): unit tests plus golden protocol tests on
-      ubuntu-latest and windows-latest, driving real git clone/push/fetch
-      against a vault.
+      ubuntu-latest, windows-latest, and macos-latest, driving real git
+      clone/push/fetch against a vault.
 
-Exit criteria: full clone → push → re-clone round-trip on both OSes;
-`kill -9` at any write stage leaves a valid vault; a flipped byte in any
-structure produces a precise error, never a panic. All three are enforced
-by the e2e suite (`internal/e2e`); the Windows leg runs in CI.
+Exit criteria: full clone → push → re-clone round-trip on every matrix
+OS; `kill -9` at any write stage leaves a valid vault; a flipped byte in
+any structure produces a precise error, never a panic. All three are
+enforced by the e2e suite (`internal/e2e`); the Windows and macOS legs
+run in CI.
 
 ### Phase 2 — Hardening
 
@@ -80,8 +83,8 @@ by the e2e suite (`internal/e2e`); the Windows leg runs in CI.
 
 ### Phase 4 — v1.0
 
-- [ ] Release binaries (linux/amd64, linux/arm64, windows/amd64); scoop,
-      winget, and Homebrew packaging.
+- [ ] Release binaries (linux/amd64, linux/arm64, windows/amd64,
+      darwin/amd64, darwin/arm64); scoop, winget, and Homebrew packaging.
 - [ ] User guide pages (quickstart, install, keys and recovery) — written
       together with the code, not before.
 - [ ] Security review of the crypto envelope and error paths; format v1
@@ -99,9 +102,9 @@ by the e2e suite (`internal/e2e`); the Windows leg runs in CI.
 - **Crypto conformance**: fixed test vectors for the key-slot envelope and
   chunk framing, published with the reference implementation.
 - **Git version matrix**: the validation floor (git 2.30, the first release
-  with the helper `object-format` capability) and current git, on both
-  operating systems. Tested versions are recorded per release, sourced from
-  the CI matrix — never asserted by hand.
+  with the helper `object-format` capability) and current git, across all
+  supported operating systems. Tested versions are recorded per release,
+  sourced from the CI matrix — never asserted by hand.
 
 ## Conventions
 
