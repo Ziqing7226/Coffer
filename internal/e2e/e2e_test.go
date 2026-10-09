@@ -47,8 +47,11 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	binDir, err = os.MkdirTemp("", "coffer-e2e-bin-")
-	if err != nil {
+	// Binaries and askpass scripts must live on an executable filesystem:
+	// TMPDIR may point at noexec media (FAT32 USB) for vault-data testing,
+	// so the build directory goes under the repo's gitignored bin/ instead.
+	binDir = filepath.Join(repoRoot, "bin", fmt.Sprintf("e2e-%d", os.Getpid()))
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
