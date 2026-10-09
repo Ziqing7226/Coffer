@@ -192,7 +192,9 @@ func Open(dir, passphrase string) (*Store, error) {
 		dek = nil
 	}
 	if dek == nil {
-		return nil, fmt.Errorf("%w: passphrase rejected by every key slot", authErr)
+		return nil, fmt.Errorf(
+			"%w: no key slot accepts this passphrase — enter the correct one, or clear a stale cached credential: printf 'protocol=coffer\\nhost=coffer\\npath=%s\\n\\n' | git credential reject",
+			authErr, meta.ID)
 	}
 	s := &Store{dir: dir, meta: meta, dek: dek}
 	var lastErr error

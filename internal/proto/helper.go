@@ -8,6 +8,7 @@ package proto
 import (
 	"bufio"
 	"crypto/sha256"
+	"errors"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -131,6 +132,9 @@ func (s *session) openStore() error {
 	}
 	meta, err := vault.ReadMeta(s.vaultDir)
 	if err != nil {
+		if errors.Is(err, vault.ErrNotVault) {
+			return fmt.Errorf("%v\nhint: the remote URL must point at an existing vault; create one with: coffer init %s", err, s.vaultDir)
+		}
 		return err
 	}
 	pass, err := GetPassphrase(meta.ID)
@@ -247,7 +251,7 @@ func (s *session) serveFetch(oids []string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("object %s is not in the vault inventory", oid)
+			return fmt.Errorf("object %s is not in the vault inventory — the manifest is inconsistent with the request; inspect the vault with `coffer status`", oid)
 		}
 	}
 	if len(m.Packs) == 0 {
@@ -285,7 +289,7 @@ func (s *session) serveFetch(oids []string) error {
 		dst := filepath.Join(packDir, "pack-"+name+".pack")
 		err = writeAllAndClose(rd, dst)
 		if err != nil {
-			return err
+			return fmt.Errorf("vault file %s: %v — the medium may be damaged; restore this file from a backup of the vault, then retry", name, err)
 		}
 		if err := packproc.IndexPackInDir(repo, dst); err != nil {
 			return err
