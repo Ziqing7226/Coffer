@@ -13,8 +13,8 @@ first-class; VSCode works because git works.
 the `git-remote-coffer` helper (progress milestones, writer lock,
 `--atomic`/`--force-with-lease`, credential approval), the `coffer` CLI,
 and CI on Linux, Windows, and macOS.
-docs/development.md tracks phase status and what remains (a VSCode UI
-pass, key management, packaging).
+docs/development.md tracks phase status and what remains (key
+management, packaging).
 
 ## Iron Rule — English only
 

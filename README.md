@@ -141,7 +141,7 @@ zero-dependency" quadrant is empty.
 - [x] **Specification** — architecture, vault format v1, threat model
 - [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
 - [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
-- [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke (VSCode UI pass still pending)
+- [x] **Phase 2 — Hardening** — progress reporting, actionable errors, writer lock, `--atomic`/`--force-with-lease`, credential approval, 10k-commit timing smoke, VSCode UI pass
 - [ ] **Phase 3 — Key management** — multiple key slots, `rekey`, `coffer gc` / `coffer fsck`
 - [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
 

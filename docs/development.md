@@ -86,8 +86,11 @@ run in CI.
       push 6.1s, fresh clone 3.4s, incremental push 3.5s, 4.9 MiB vault
       (budgets 10m / 10m / 2m). The whole e2e suite also passes with all
       vault data on FAT32 external media.
-- [ ] A VSCode validation pass in the UI — prompts, progress, and error
-      surfaces observed by hand.
+- [x] A VSCode validation pass in the UI — publishing a branch from the
+      Source Control view prompts in a native input box; a wrong
+      passphrase surfaces the actionable error including the eviction
+      recipe; canceling the prompt reports the empty credential.
+      Validated by hand in VSCode 1.140 on Linux.
 
 ### Phase 3 — Key management
 
