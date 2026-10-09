@@ -59,7 +59,7 @@ supported operating system.
 - [x] Format v1 fully implemented: key slots, manifest, chunked object AEAD.
 - [x] Helper capabilities: `list`, `fetch`, `push`, `option`,
       `object-format`.
-- [x] `coffer init` and `coffer status`.
+- [x] `gitcoffer init` and `gitcoffer status`.
 - [x] CI (GitHub Actions): unit tests plus golden protocol tests on
       ubuntu-latest, windows-latest, and macos-latest, driving real git
       clone/push/fetch against a vault.
@@ -97,14 +97,14 @@ run in CI.
 
 ### Phase 3 — Key management
 
-- [x] Multiple key slots; `coffer rekey` rewrites only `vault.meta` —
+- [x] Multiple key slots; `gitcoffer rekey` rewrites only `vault.meta` —
       tests assert object files stay byte-identical.
 - [x] Optional key file as a second factor: the slot derives from
       passphrase + key-file bytes and records the path, so the helper
       reads it automatically (no per-remote configuration).
-- [x] `coffer gc` (orphaned objects, `.tmp` sweep, generation pruning;
+- [x] `gitcoffer gc` (orphaned objects, `.tmp` sweep, generation pruning;
       holds the writer lock across scan and sweep; refuses to delete
-      anything if any generation fails to decrypt) and `coffer fsck`
+      anything if any generation fails to decrypt) and `gitcoffer fsck`
       (slot shapes, manifest authentication, `prev` chain, ref inventory,
       per-object AEAD + checksum + size; first divergence per structure).
 

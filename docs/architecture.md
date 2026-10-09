@@ -69,7 +69,7 @@ Two alternatives were rejected deliberately:
 | Component | Role |
 |---|---|
 | `git-remote-coffer` | the remote helper; implements the git remote-helper protocol (`list`, `fetch`, `push`) |
-| `coffer` | lifecycle CLI: `init`, `status`, `rekey`, `gc`, `fsck` |
+| `gitcoffer` | lifecycle CLI: `init`, `status`, `rekey`, `gc`, `fsck` |
 | vault store | the on-disk format, specified normatively in [format-spec.md](format-spec.md) |
 | pack glue | thin wrappers around git plumbing (`pack-objects`, `git index-pack`, `git show-index`) to move and inventory packs without reimplementing pack handling |
 
@@ -77,7 +77,7 @@ Two alternatives were rejected deliberately:
 
 The software lives on the **host**; the data lives on the **medium**:
 
-- `git-remote-coffer` and `coffer` are installed on every machine you work
+- `git-remote-coffer` and `gitcoffer` are installed on every machine you work
   from. Git discovers the helper through `PATH`, so installation is simply
   "put the binary on `PATH`" — package managers do this for you. One
   installation per machine; one vault per repository on the medium.
@@ -155,7 +155,7 @@ Normative details live in [format-spec.md](format-spec.md).
 
 ## Credentials and VSCode
 
-The passphrase is set once, at `coffer init`. Afterwards it is requested
+The passphrase is set once, at `gitcoffer init`. Afterwards it is requested
 **at the start of every operation that opens the vault** — `git push`,
 `git pull`, `git fetch`, `git clone` — and always through
 `git credential fill`, never by reading the terminal directly:
@@ -172,7 +172,7 @@ The passphrase is set once, at `coffer init`. Afterwards it is requested
   passphrase is never approved. Coffer itself never stores passphrases.
 
 A key slot can also require a **key file** as a second factor
-(`coffer key add -keyfile <path>`): the slot derives its key from the
+(`gitcoffer key add -keyfile <path>`): the slot derives its key from the
 passphrase concatenated with the file's bytes and records the file's
 path. The file itself deliberately lives away from the vault — losing it
 locks out that slot, which is the point. Because the path travels in

@@ -45,7 +45,7 @@ and, as importantly, what it does not.
   able to rewrite the entire vault at will can roll it back to an earlier
   consistent generation. Retaining several manifest generations
   (`generations.kept`, default 2) makes rollback *visible* to
-  `coffer fsck` when compared against remembered state, but Coffer does not
+  `gitcoffer fsck` when compared against remembered state, but Coffer does not
   provide trusted timestamping.
 
 ## Metadata leakage (known, accepted)
