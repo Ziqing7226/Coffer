@@ -1,4 +1,4 @@
-// Command git-remote-coffer is the Coffer remote helper: git invokes it for
+// Command git-remote-coffer is the GitCoffer remote helper: git invokes it for
 // coffer::<path> URLs and speaks the remote-helper protocol over stdio.
 package main
 
@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Ziqing7226/Coffer/internal/proto"
+	"github.com/Ziqing7226/GitCoffer/internal/proto"
 )
 
 func main() {

@@ -1,4 +1,4 @@
-// Command coffer manages vaults: init creates one, status inspects it.
+// Command gitcoffer manages vaults: init creates one, status inspects it.
 package main
 
 import (
@@ -7,19 +7,58 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 	"golang.org/x/term"
 )
 
-// version is stamped at release time via -ldflags "-X main.version=…";
-// source builds report themselves as development builds.
-var version = "development build"
+// version is stamped at release time via -ldflags "-X main.version=…".
+// Source builds fall back to the VCS information the Go toolchain embeds
+// (revision and commit time), so a self-built binary identifies exactly
+// what it was built from instead of a generic placeholder.
+var version = ""
+
+// versionString renders the version line: the stamped release version,
+// or the embedded VCS revision for source builds.
+func versionString() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		var rev, commitDate string
+		dirty := false
+		for _, s := range info.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				rev = s.Value
+			case "vcs.time":
+				commitDate = s.Value
+			case "vcs.modified":
+				dirty = s.Value == "true"
+			}
+		}
+		if rev != "" {
+			suffix := ""
+			if len(rev) > 12 {
+				rev = rev[:12]
+			}
+			if commitDate != "" {
+				suffix = " (" + commitDate + ")"
+			}
+			if dirty {
+				suffix += " (modified)"
+			}
+			return "development build from commit " + rev + suffix
+		}
+	}
+	return "development build"
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -35,7 +74,7 @@ func main() {
 	case "rekey":
 		err = rekeyCmd(os.Args[2:])
 	case "version":
-		fmt.Printf("coffer %s\n", version)
+		fmt.Printf("gitcoffer %s\n", versionString())
 	case "key":
 		if len(os.Args) < 3 {
 			usage()
@@ -49,7 +88,7 @@ func main() {
 		case "list":
 			err = keyListCmd(os.Args[3:])
 		default:
-			fmt.Fprintf(os.Stderr, "coffer: unknown key subcommand %q\n\n", os.Args[2])
+			fmt.Fprintf(os.Stderr, "gitcoffer: unknown key subcommand %q\n\n", os.Args[2])
 			usage()
 			os.Exit(2)
 		}
@@ -64,37 +103,37 @@ func main() {
 	case "help", "-h", "--help":
 		usage()
 	default:
-		fmt.Fprintf(os.Stderr, "coffer: unknown command %q\n\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "gitcoffer: unknown command %q\n\n", os.Args[1])
 		usage()
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "coffer: %v\n", err)
+		fmt.Fprintf(os.Stderr, "gitcoffer: %v\n", err)
 		os.Exit(1)
 	}
 }
 
 func usage() {
 	fmt.Fprint(os.Stderr, `usage:
-  coffer init <vault-directory>            create a new encrypted vault
-  coffer status <vault-directory>          inspect a vault (refs need the passphrase)
-  coffer rekey <vault-directory>           change the passphrase of the slot it opens
-  coffer key add <vault-directory>         add a passphrase slot (optionally -keyfile)
+  gitcoffer init <vault-directory>            create a new encrypted vault
+  gitcoffer status <vault-directory>          inspect a vault (refs need the passphrase)
+  gitcoffer rekey <vault-directory>           change the passphrase of the slot it opens
+  gitcoffer key add <vault-directory>         add a passphrase slot (optionally -keyfile)
                                             [-keyfile <path>]
-  coffer key remove <vault-directory> <id> remove a key slot (never the last one)
-  coffer key list <vault-directory>        list key slots (no passphrase needed)
-  coffer gc [--dry-run] <vault-directory>  remove orphaned objects, temp files, old generations
-  coffer fsck <vault-directory>            verify every structure of the vault
-  coffer doctor <vault-directory>          check the environment and the vault, and report
-  coffer export-bundle <vault-dir> <file>  export the vault as a plain git bundle
-  coffer version                           print the build version
+  gitcoffer key remove <vault-directory> <id> remove a key slot (never the last one)
+  gitcoffer key list <vault-directory>        list key slots (no passphrase needed)
+  gitcoffer gc [--dry-run] <vault-directory>  remove orphaned objects, temp files, old generations
+  gitcoffer fsck <vault-directory>            verify every structure of the vault
+  gitcoffer doctor <vault-directory>          check the environment and the vault, and report
+  gitcoffer export-bundle <vault-dir> <file>  export the vault as a plain git bundle
+  gitcoffer version                           print the build version
 `)
 }
 
 func initCmd(args []string) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer init <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer init <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -136,7 +175,7 @@ func initCmd(args []string) error {
 func statusCmd(args []string) error {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer status <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer status <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -251,7 +290,7 @@ func vaultDirArg(fs *flag.FlagSet) string {
 func rekeyCmd(args []string) error {
 	fs := flag.NewFlagSet("rekey", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer rekey <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer rekey <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -278,7 +317,7 @@ func keyAddCmd(args []string) error {
 	fs := flag.NewFlagSet("key add", flag.ContinueOnError)
 	keyfile := fs.String("keyfile", "", "require this key file in addition to the passphrase (created with random bytes if missing)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer key add [-keyfile <path>] <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer key add [-keyfile <path>] <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -317,7 +356,7 @@ func keyAddCmd(args []string) error {
 func keyRemoveCmd(args []string) error {
 	fs := flag.NewFlagSet("key remove", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer key remove <vault-directory> <slot-id>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer key remove <vault-directory> <slot-id>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -347,7 +386,7 @@ func keyRemoveCmd(args []string) error {
 func keyListCmd(args []string) error {
 	fs := flag.NewFlagSet("key list", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer key list <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer key list <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -377,7 +416,7 @@ func gcCmd(args []string) error {
 	fs := flag.NewFlagSet("gc", flag.ContinueOnError)
 	dryRun := fs.Bool("dry-run", false, "report what would be removed without deleting anything")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer gc [--dry-run] <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer gc [--dry-run] <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -428,7 +467,7 @@ func gcCmd(args []string) error {
 func fsckCmd(args []string) error {
 	fs := flag.NewFlagSet("fsck", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer fsck <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer fsck <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

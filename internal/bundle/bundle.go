@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/Ziqing7226/Coffer/internal/packproc"
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/packproc"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 // Export decrypts the vault at vaultDir into a scratch repository and
@@ -57,6 +57,9 @@ func Export(vaultDir, passphrase, outFile string) (int, error) {
 
 	// Recreate every ref, then a HEAD by the advertised fallback rule so
 	// clones from the bundle check out like clones from the vault.
+	if len(m.Refs) == 0 {
+		return 0, fmt.Errorf("the vault holds no refs to export")
+	}
 	refNames := make([]string, 0, len(m.Refs))
 	for name := range m.Refs {
 		refNames = append(refNames, name)

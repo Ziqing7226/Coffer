@@ -18,8 +18,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ziqing7226/Coffer/internal/packproc"
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/packproc"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 // Run executes the helper conversation for the vault at vaultDir. It returns
@@ -133,7 +133,7 @@ func (s *session) openStore() error {
 	meta, err := vault.ReadMeta(s.vaultDir)
 	if err != nil {
 		if errors.Is(err, vault.ErrNotVault) {
-			return fmt.Errorf("%v\nhint: the remote URL must point at an existing vault; create one with: coffer init %s", err, s.vaultDir)
+			return fmt.Errorf("%v\nhint: the remote URL must point at an existing vault; create one with: gitcoffer init %s", err, s.vaultDir)
 		}
 		return err
 	}

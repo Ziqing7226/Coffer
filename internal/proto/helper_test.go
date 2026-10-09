@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 // driveSession runs a scripted conversation against Run and returns the

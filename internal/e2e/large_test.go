@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 func TestLargeRepositorySmoke(t *testing.T) {

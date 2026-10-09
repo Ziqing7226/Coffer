@@ -1,6 +1,6 @@
 // Package e2e drives real git against the built Coffer binaries: these are
 // the golden protocol tests from docs/development.md. They build
-// git-remote-coffer and coffer, put the helper on PATH, script the
+// git-remote-coffer and gitcoffer, put the helper on PATH, script the
 // passphrase through GIT_ASKPASS (the same mechanism VSCode uses), and
 // exercise clone/push/fetch against encrypted vaults.
 package e2e
@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 const (
@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 	}
 	for _, target := range []struct{ out, pkg string }{
 		{"git-remote-coffer" + exe, "./cmd/git-remote-coffer"},
-		{"coffer" + exe, "./cmd/coffer"},
+		{"gitcoffer" + exe, "./cmd/gitcoffer"},
 	} {
 		cmd := exec.Command("go", "build", "-o", filepath.Join(binDir, target.out), target.pkg)
 		cmd.Dir = repoRoot

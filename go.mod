@@ -1,4 +1,4 @@
-module github.com/Ziqing7226/Coffer
+module github.com/Ziqing7226/GitCoffer
 
 go 1.27
 
