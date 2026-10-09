@@ -2,12 +2,14 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Ziqing7226/Coffer/internal/crypto"
@@ -26,6 +28,29 @@ func main() {
 		err = initCmd(os.Args[2:])
 	case "status":
 		err = statusCmd(os.Args[2:])
+	case "rekey":
+		err = rekeyCmd(os.Args[2:])
+	case "key":
+		if len(os.Args) < 3 {
+			usage()
+			os.Exit(2)
+		}
+		switch os.Args[2] {
+		case "add":
+			err = keyAddCmd(os.Args[3:])
+		case "remove":
+			err = keyRemoveCmd(os.Args[3:])
+		case "list":
+			err = keyListCmd(os.Args[3:])
+		default:
+			fmt.Fprintf(os.Stderr, "coffer: unknown key subcommand %q\n\n", os.Args[2])
+			usage()
+			os.Exit(2)
+		}
+	case "gc":
+		err = gcCmd(os.Args[2:])
+	case "fsck":
+		err = fsckCmd(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -41,8 +66,15 @@ func main() {
 
 func usage() {
 	fmt.Fprint(os.Stderr, `usage:
-  coffer init <vault-directory>     create a new encrypted vault
-  coffer status <vault-directory>   inspect a vault (refs need the passphrase)
+  coffer init <vault-directory>            create a new encrypted vault
+  coffer status <vault-directory>          inspect a vault (refs need the passphrase)
+  coffer rekey <vault-directory>           change the passphrase of the slot it opens
+  coffer key add <vault-directory>         add a passphrase slot (optionally -keyfile)
+                                            [-keyfile <path>]
+  coffer key remove <vault-directory> <id> remove a key slot (never the last one)
+  coffer key list <vault-directory>        list key slots (no passphrase needed)
+  coffer gc <vault-directory>              remove orphaned objects, temp files, old generations
+  coffer fsck <vault-directory>            verify every structure of the vault
 `)
 }
 
@@ -64,15 +96,11 @@ func initCmd(args []string) error {
 		return fmt.Errorf("refusing to overwrite existing vault at %s", dir)
 	}
 
-	fmt.Fprintln(os.Stderr, "Enter passphrase for the new vault:")
-	first, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
+	first, err := promptPassword("Enter passphrase for the new vault")
 	if err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stderr, "Repeat passphrase:")
-	second, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
+	second, err := promptPassword("Repeat passphrase")
 	if err != nil {
 		return err
 	}
@@ -115,13 +143,11 @@ func statusCmd(args []string) error {
 		dir, meta.FormatVersion, meta.ID, meta.Created.Format("2006-01-02 15:04:05 MST"), len(meta.Slots))
 	fmt.Printf("  manifest generations on disk: %s\n", generationList(vault.GenerationNums(dir)))
 
-	fmt.Fprintln(os.Stderr, "Passphrase:")
-	pass, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
+	pass, err := promptPassword("Passphrase")
 	if err != nil {
 		return err
 	}
-	s, err := vault.Open(dir, string(pass))
+	s, err := vault.Open(dir, pass)
 	if err != nil {
 		return err
 	}
@@ -142,6 +168,261 @@ func statusCmd(args []string) error {
 	}
 	fmt.Printf("  packs: %d (objects listed: %d, plaintext %s)\n",
 		len(m.Packs), objects, humanBytes(bytesStored))
+	return nil
+}
+
+// stdinLines buffers non-terminal stdin across prompts: a fresh reader
+// per prompt would swallow lines it buffered ahead.
+var stdinLines *bufio.Reader
+
+// promptPassword reads one passphrase after printing label. On a terminal
+// it is hidden; when stdin is not a terminal (scripts, tests) one line is
+// read instead — the same channel typing would use, so nothing is weaker.
+func promptPassword(label string) (string, error) {
+	fmt.Fprintln(os.Stderr, label+":")
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+	if stdinLines == nil {
+		stdinLines = bufio.NewReader(os.Stdin)
+	}
+	line, err := stdinLines.ReadString('\n')
+	if err != nil && line == "" {
+		return "", err
+	}
+	return strings.TrimRight(line, "\r\n"), nil
+}
+
+// promptNewPassword asks for a new passphrase twice and requires a
+// non-empty match.
+func promptNewPassword() (string, error) {
+	first, err := promptPassword("New passphrase")
+	if err != nil {
+		return "", err
+	}
+	if first == "" {
+		return "", errors.New("passphrase must not be empty")
+	}
+	second, err := promptPassword("Repeat new passphrase")
+	if err != nil {
+		return "", err
+	}
+	if first != second {
+		return "", errors.New("passphrases do not match")
+	}
+	return first, nil
+}
+
+// openWithPrompt opens a vault after prompting for its passphrase.
+func openWithPrompt(dir string) (*vault.Store, error) {
+	pass, err := promptPassword("Passphrase")
+	if err != nil {
+		return nil, err
+	}
+	return vault.Open(dir, pass)
+}
+
+func vaultDirArg(fs *flag.FlagSet) string {
+	if fs.NArg() != 1 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	return fs.Arg(0)
+}
+
+func rekeyCmd(args []string) error {
+	fs := flag.NewFlagSet("rekey", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer rekey <vault-directory>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	dir := vaultDirArg(fs)
+
+	s, err := openWithPrompt(dir)
+	if err != nil {
+		return err
+	}
+	newPass, err := promptNewPassword()
+	if err != nil {
+		return err
+	}
+	if err := s.Rekey(newPass); err != nil {
+		return err
+	}
+	fmt.Printf("Passphrase replaced for slot %d — vault.meta rewritten, object data untouched\n", s.OpenedSlotID())
+	return nil
+}
+
+func keyAddCmd(args []string) error {
+	fs := flag.NewFlagSet("key add", flag.ContinueOnError)
+	keyfile := fs.String("keyfile", "", "require this key file in addition to the passphrase (created with random bytes if missing)")
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer key add [-keyfile <path>] <vault-directory>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	dir := vaultDirArg(fs)
+
+	s, err := openWithPrompt(dir)
+	if err != nil {
+		return err
+	}
+	newPass, err := promptNewPassword()
+	if err != nil {
+		return err
+	}
+	_, statErr := os.Stat(*keyfile)
+	created := *keyfile != "" && statErr != nil
+	id, err := s.AddSlot(newPass, *keyfile)
+	if err != nil {
+		return err
+	}
+	if *keyfile == "" {
+		fmt.Printf("Slot %d added (input: passphrase)\n", id)
+		return nil
+	}
+	abs, _ := filepath.Abs(*keyfile)
+	if created {
+		fmt.Printf("Slot %d added (input: passphrase + key file)\n  key file created: %s\n", id, abs)
+	} else {
+		fmt.Printf("Slot %d added (input: passphrase + key file)\n  key file: %s\n", id, abs)
+	}
+	fmt.Println("  back the key file up separately from the vault — losing it locks this slot out")
+	return nil
+}
+
+func keyRemoveCmd(args []string) error {
+	fs := flag.NewFlagSet("key remove", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer key remove <vault-directory> <slot-id>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 2 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	dir := fs.Arg(0)
+	id, err := strconv.Atoi(fs.Arg(1))
+	if err != nil {
+		return fmt.Errorf("slot id must be an integer: %v", err)
+	}
+
+	s, err := openWithPrompt(dir)
+	if err != nil {
+		return err
+	}
+	if err := s.RemoveSlot(id); err != nil {
+		return err
+	}
+	fmt.Printf("Slot %d removed\n", id)
+	return nil
+}
+
+func keyListCmd(args []string) error {
+	fs := flag.NewFlagSet("key list", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer key list <vault-directory>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	dir := vaultDirArg(fs)
+
+	meta, err := vault.ReadMeta(dir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("vault %s — %d key slot(s):\n", meta.ID, len(meta.Slots))
+	for _, sl := range meta.Slots {
+		input := "passphrase"
+		keyfile := ""
+		if sl.Input == "passphrase+keyfile" {
+			input = "passphrase + key file"
+			keyfile = "  key file: " + sl.Keyfile
+		}
+		fmt.Printf("  slot %d: input %s, kdf %s (m=%d t=%d p=%d)%s\n",
+			sl.ID, input, sl.KDF.Algo, sl.KDF.M, sl.KDF.T, sl.KDF.P, keyfile)
+	}
+	return nil
+}
+
+func gcCmd(args []string) error {
+	fs := flag.NewFlagSet("gc", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer gc <vault-directory>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	dir := vaultDirArg(fs)
+
+	pass, err := promptPassword("Passphrase")
+	if err != nil {
+		return err
+	}
+	rep, err := vault.GC(dir, pass)
+	if err != nil {
+		return err
+	}
+	for _, name := range rep.RemovedObjects {
+		fmt.Printf("removed orphaned object %s\n", name)
+	}
+	for _, name := range rep.RemovedTmp {
+		fmt.Printf("removed temp file %s\n", name)
+	}
+	for _, n := range rep.PrunedGenerations {
+		fmt.Printf("pruned manifest generation %d\n", n)
+	}
+	fmt.Printf("gc complete: %d object(s), %d temp file(s), %d generation(s) removed, %s freed\n",
+		len(rep.RemovedObjects), len(rep.RemovedTmp), len(rep.PrunedGenerations), humanBytes(rep.BytesFreed))
+	return nil
+}
+
+func fsckCmd(args []string) error {
+	fs := flag.NewFlagSet("fsck", flag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: coffer fsck <vault-directory>")
+		fs.PrintDefaults()
+	}
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	dir := vaultDirArg(fs)
+
+	pass, err := promptPassword("Passphrase")
+	if err != nil {
+		return err
+	}
+	findings, err := vault.Fsck(dir, pass)
+	if err != nil {
+		return err
+	}
+	errs := 0
+	for _, f := range findings {
+		fmt.Println(f)
+		if f.Err {
+			errs++
+		}
+	}
+	if errs > 0 {
+		return fmt.Errorf("fsck found %d error(s)", errs)
+	}
+	fmt.Println("fsck complete: no errors found")
 	return nil
 }
 
