@@ -86,14 +86,24 @@ type AEADInfo struct {
 	Nonce []byte `json:"nonce"`
 }
 
-// Slot seals the data-encryption key under one passphrase. The sealed DEK
-// only opens under the passphrase whose Argon2id derivation matches the
+// Slot input types: what the KDF derives from (spec §3). The default,
+// omitted on disk, is the passphrase alone; a second-factor slot derives
+// from the passphrase concatenated with the key file's bytes.
+const (
+	InputPassphrase        = "passphrase"
+	InputPassphraseKeyfile = "passphrase+keyfile"
+)
+
+// Slot seals the data-encryption key under one secret. The sealed DEK
+// only opens under the secret whose Argon2id derivation matches the
 // stored parameters and salt.
 type Slot struct {
-	ID   int          `json:"id"`
-	KDF  Argon2Params `json:"kdf"`
-	AEAD AEADInfo     `json:"aead"`
-	DEK  []byte       `json:"dek"`
+	ID      int          `json:"id"`
+	KDF     Argon2Params `json:"kdf"`
+	AEAD    AEADInfo     `json:"aead"`
+	DEK     []byte       `json:"dek"`
+	Input   string       `json:"input,omitempty"`
+	Keyfile string       `json:"keyfile,omitempty"`
 }
 
 // NewDEK returns a fresh random data-encryption key.
@@ -107,11 +117,20 @@ func NewDEK() ([]byte, error) {
 
 // RandomHex returns n random bytes hex-encoded (2n characters).
 func RandomHex(n int) (string, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
+	b, err := RandomBytes(n)
+	if err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+// RandomBytes returns n fresh bytes from the OS CSPRNG.
+func RandomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 func deriveKEK(passphrase string, p Argon2Params) []byte {
@@ -130,8 +149,11 @@ func AAD(role, specific string) []byte {
 	return []byte(fmt.Sprintf("coffer/%d/%s/%s", FormatVersion, role, specific))
 }
 
-// SealSlot creates a key slot sealing dek under passphrase.
-func SealSlot(id int, passphrase string, dek []byte, vaultID string, params Argon2Params) (*Slot, error) {
+// SealSlot creates a key slot sealing dek under secret — the passphrase,
+// or the passphrase concatenated with the key-file bytes for a
+// second-factor slot (the caller assembles the input; the slot records
+// which type it is).
+func SealSlot(id int, secret string, dek []byte, vaultID string, params Argon2Params) (*Slot, error) {
 	if err := params.validate(); err != nil {
 		return nil, err
 	}
@@ -141,7 +163,7 @@ func SealSlot(id int, passphrase string, dek []byte, vaultID string, params Argo
 			return nil, err
 		}
 	}
-	kek := deriveKEK(passphrase, params)
+	kek := deriveKEK(secret, params)
 	aead, err := newAEAD(kek)
 	if err != nil {
 		return nil, err
@@ -154,9 +176,27 @@ func SealSlot(id int, passphrase string, dek []byte, vaultID string, params Argo
 	return &Slot{ID: id, KDF: params, AEAD: AEADInfo{Algo: AEADAlgo, Nonce: nonce}, DEK: sealed}, nil
 }
 
-// Open unseals the slot's DEK under passphrase. It returns ErrAuth when the
-// passphrase is wrong or the slot was tampered with.
-func (s *Slot) Open(passphrase, vaultID string) ([]byte, error) {
+// Validate checks a slot's structural constraints without deriving
+// anything: KDF parameter bounds, algorithm names, and nonce length.
+func (s *Slot) Validate() error {
+	if err := s.KDF.validate(); err != nil {
+		return fmt.Errorf("slot %d: %v", s.ID, err)
+	}
+	if s.AEAD.Algo != AEADAlgo {
+		return fmt.Errorf("slot %d: unsupported aead %q", s.ID, s.AEAD.Algo)
+	}
+	// chacha20poly1305 panics on a wrong-length nonce; corrupted slots must
+	// be rejected with an error instead.
+	if len(s.AEAD.Nonce) != NonceSize {
+		return fmt.Errorf("slot %d: malformed nonce length", s.ID)
+	}
+	return nil
+}
+
+// Open unseals the slot's DEK under secret (passphrase, or passphrase plus
+// key-file bytes). It returns ErrAuth when the secret is wrong or the slot
+// was tampered with.
+func (s *Slot) Open(secret, vaultID string) ([]byte, error) {
 	if err := s.KDF.validate(); err != nil {
 		return nil, err
 	}
@@ -168,7 +208,7 @@ func (s *Slot) Open(passphrase, vaultID string) ([]byte, error) {
 	if len(s.AEAD.Nonce) != NonceSize {
 		return nil, fmt.Errorf("slot %d: malformed nonce length", s.ID)
 	}
-	kek := deriveKEK(passphrase, s.KDF)
+	kek := deriveKEK(secret, s.KDF)
 	aead, err := newAEAD(kek)
 	if err != nil {
 		return nil, err

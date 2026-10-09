@@ -1,0 +1,171 @@
+package vault
+
+// Key-slot management (spec §3): opening assembles each slot's KDF input
+// (passphrase, or passphrase plus key-file bytes for second-factor slots),
+// and key rotation rewrites only vault.meta — the DEK and every object
+// file stay untouched.
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/Ziqing7226/Coffer/internal/crypto"
+)
+
+// slotSecret assembles the KDF input for one slot. A relative key-file
+// path resolves against the vault directory — never the caller's working
+// directory, which for the remote helper is the pushing repository.
+func slotSecret(dir string, slot crypto.Slot, passphrase string) (string, error) {
+	switch slot.Input {
+	case "", crypto.InputPassphrase:
+		return passphrase, nil
+	case crypto.InputPassphraseKeyfile:
+		if slot.Keyfile == "" {
+			return "", fmt.Errorf("slot %d requires a key file but none is configured", slot.ID)
+		}
+		path := slot.Keyfile
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dir, path)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("key file for slot %d: %v", slot.ID, err)
+		}
+		return passphrase + string(data), nil
+	default:
+		// Unknown input type: a future format this build cannot use.
+		return "", fmt.Errorf("slot %d: unsupported input %q", slot.ID, slot.Input)
+	}
+}
+
+// rewriteMeta atomically replaces vault.meta (spec §6, pattern 3).
+func (s *Store) rewriteMeta() error {
+	data, err := json.MarshalIndent(s.meta, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(s.dir, metaName, func(f *os.File) error {
+		_, err := f.Write(data)
+		return err
+	})
+}
+
+// OpenedSlotID returns the id of the key slot the current passphrase
+// authenticated against.
+func (s *Store) OpenedSlotID() int { return s.openedSlotID }
+
+// AddSlot seals the vault's DEK under an additional passphrase, optionally
+// combined with a key file (second factor). A keyfile path that does not
+// yet exist is created with fresh random bytes, mode 0600, and its
+// absolute path is recorded in the slot; the user must back it up
+// separately from the vault. Returns the new slot id.
+func (s *Store) AddSlot(newPass, keyfile string) (int, error) {
+	id := 0
+	for _, sl := range s.meta.Slots {
+		if sl.ID >= id {
+			id = sl.ID + 1
+		}
+	}
+	secret := newPass
+	var created *crypto.Slot
+	var err error
+	if keyfile != "" {
+		keyfile, err = ensureKeyfile(keyfile)
+		if err != nil {
+			return 0, err
+		}
+		data, err := os.ReadFile(keyfile)
+		if err != nil {
+			return 0, err
+		}
+		secret = newPass + string(data)
+		created, err = crypto.SealSlot(id, secret, s.dek, s.meta.ID, crypto.DefaultParams())
+		if err == nil {
+			created.Input = crypto.InputPassphraseKeyfile
+			created.Keyfile = keyfile
+		}
+	} else {
+		created, err = crypto.SealSlot(id, secret, s.dek, s.meta.ID, crypto.DefaultParams())
+	}
+	if err != nil {
+		return 0, err
+	}
+	s.meta.Slots = append(s.meta.Slots, *created)
+	if err := s.rewriteMeta(); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// minKeyfileSize is the smallest existing file accepted as a key file: an
+// empty or tiny file would make the "second factor" vacuous (the KDF input
+// would degenerate to the passphrase alone) without any warning.
+const minKeyfileSize = 16
+
+// ensureKeyfile makes the key file exist: an existing file is used as-is
+// (users may point at a file they manage), provided it carries real
+// entropy; a missing one is created with 32 random bytes. The returned
+// path is absolute.
+func ensureKeyfile(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if info, err := os.Stat(abs); err == nil {
+		if info.Size() < minKeyfileSize {
+			return "", fmt.Errorf("key file %s holds only %d bytes — a second factor must carry real entropy (at least %d bytes)", abs, info.Size(), minKeyfileSize)
+		}
+		return abs, nil
+	}
+	key, err := crypto.RandomBytes(32)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(abs, key, 0o600); err != nil {
+		return "", err
+	}
+	return abs, nil
+}
+
+// RemoveSlot drops the slot with the given id from vault.meta. The last
+// remaining slot is refused: a vault must keep at least one way in.
+func (s *Store) RemoveSlot(id int) error {
+	if len(s.meta.Slots) <= 1 {
+		return errors.New("refusing to remove the last key slot")
+	}
+	kept := s.meta.Slots[:0]
+	found := false
+	for _, sl := range s.meta.Slots {
+		if sl.ID == id {
+			found = true
+			continue
+		}
+		kept = append(kept, sl)
+	}
+	if !found {
+		return fmt.Errorf("no key slot with id %d", id)
+	}
+	s.meta.Slots = kept
+	return s.rewriteMeta()
+}
+
+// Rekey re-seals the DEK under newPass in the slot the current passphrase
+// opened, with a fresh salt, nonce, and default parameters. Only
+// vault.meta is rewritten: object data is never re-encrypted (the DEK
+// itself does not change).
+func (s *Store) Rekey(newPass string) error {
+	fresh, err := crypto.SealSlot(s.openedSlotID, newPass, s.dek, s.meta.ID, crypto.DefaultParams())
+	if err != nil {
+		return err
+	}
+	for i, sl := range s.meta.Slots {
+		if sl.ID == s.openedSlotID {
+			s.meta.Slots[i] = *fresh
+			break
+		}
+	}
+	return s.rewriteMeta()
+}
