@@ -78,23 +78,29 @@ jobs:
           set -euo pipefail
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends \
-            ca-certificates curl make gcc libssl-dev zlib1g-dev \
-            libcurl4-openssl-dev gettext
+            ca-certificates curl make gcc zlib1g-dev
           curl -fsSL https://www.kernel.org/pub/software/scm/git/git-2.30.0.tar.xz \
             -o /tmp/git.tar.xz
           tar -xJf /tmp/git.tar.xz -C /tmp
-          make -C /tmp/git-2.30.0 -j"$(nproc)" NO_TCLTK=1 NO_GETTEXT=1 prefix=/usr/local >/tmp/git-build.log 2>&1
-          make -C /tmp/git-2.30.0 NO_TCLTK=1 NO_GETTEXT=1 prefix=/usr/local install >/dev/null
-          git --version
-          case "$(git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
+          # Minimal feature set: the suite exercises local and helper
+          # transports only, so OpenSSL and curl are unnecessary — and
+          # building without them avoids git-2.30-vs-modern-OpenSSL 3
+          # incompatibilities.
+          make -C /tmp/git-2.30.0 -j"$(nproc)" \
+            NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
+            prefix=/usr/local >/tmp/git-build.log 2>&1
+          make -C /tmp/git-2.30.0 \
+            NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
+            prefix=/usr/local install >/dev/null
+          /usr/local/bin/git --version
+          case "$(/usr/local/bin/git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
       - uses: actions/checkout@v5
-        env:
-          # Ensure the freshly built 2.30 is the git the tests exercise.
-          PATH: /usr/local/bin:/usr/bin:/bin
       - name: Full suite against git 2.30
         shell: bash
         run: |
           set +e
+          export PATH=/usr/local/bin:"$PATH"   # the freshly built 2.30 first
+          git --version
           go test ./... -count=1 > /tmp/floor.log 2>&1
           status=$?
           set -e
@@ -102,4 +108,6 @@ jobs:
           exit "$status"
       - name: Cross-builds
         shell: bash
-        run: go build ./...
+        run: |
+          export PATH=/usr/local/bin:"$PATH"
+          go build ./...
