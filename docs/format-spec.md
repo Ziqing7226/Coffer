@@ -80,7 +80,9 @@ Rules:
   fields added without a version bump (like `input` and `keyfile` below)
   rely on this rule.
 - There MUST be at least one slot. Multiple slots allow several passphrases
-  or key files to open the same vault.
+  or key files to open the same vault. Readers MAY bound the number of
+  slots (the reference implementation: 16) and MAY bound the size of
+  `vault.meta`.
 - Slot `id` values are stable identifiers; `rekey` rewrites the whole file,
   re-sealing the same DEK in the same slot id with a fresh salt and nonce —
   object data is never re-encrypted.
