@@ -2,10 +2,10 @@
   <img src="docs/assets/coffer.svg" width="140" alt="Coffer logo" />
 </div>
 
-<h1 align="center">Coffer</h1>
+<h1 align="center">GitCoffer</h1>
 
 <p align="center">
-  <strong>Your code. Your keys. An encrypted git remote on your own disk.</strong><br>
+  <strong>An encrypted git remote on your own disk.</strong><br>
   Push from any git client — including VSCode — straight into a
   password-protected vault on a second disk or USB drive.
 </p>
@@ -77,8 +77,8 @@ unpack, and put both `gitcoffer` and `git-remote-coffer` on `PATH` (git finds
 the helper through `PATH`; no administrator rights needed). Verify:
 
 ```console
-$ gitgitcoffer version
-coffer 1.0.0-pre
+$ gitcoffer version
+gitcoffer 1.0.0-pre
 ```
 
 Or build from source with Go ≥ 1.27:

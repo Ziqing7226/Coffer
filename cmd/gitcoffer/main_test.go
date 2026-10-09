@@ -90,3 +90,42 @@ func TestVersionLineShape(t *testing.T) {
 		t.Fatalf("unstamped build claims a release version: %q", versionString())
 	}
 }
+
+func TestDocsFreeOfRenameArtifacts(t *testing.T) {
+	// Chained renames once produced "gitgitcoffer" and output lines still
+	// prefixed "coffer" under a "gitcoffer" command. These guards pin the
+	// whole class: no replacement artifacts, no mismatched console output,
+	// and the project title matches the repository name.
+	files := []string{"../../README.md", "../../docs/user-guide.md",
+		"../../CHANGELOG.md", "../../AGENTS.md", "../../CONTRIBUTING.md",
+		"../../SECURITY.md", "../../docs/architecture.md",
+		"../../docs/development.md", "../../docs/support-matrix.md",
+		"../../docs/threat-model.md", "../../docs/format-spec.md"}
+	read := func(p string) string {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("reading %s: %v", p, err)
+		}
+		return string(data)
+	}
+	for _, p := range files {
+		text := read(p)
+		for _, artifact := range []string{"gitgit", "coffercoffer", "gitt-", "git-gitcoffer"} {
+			if strings.Contains(text, artifact) {
+				t.Errorf("%s contains rename artifact %q", p, artifact)
+			}
+		}
+		// Every console block that runs `gitcoffer version` must print a
+		// line prefixed "gitcoffer " — never the old binary name.
+		for _, line := range strings.Split(text, "\n") {
+			if strings.HasPrefix(line, "coffer ") {
+				t.Errorf("%s has an output line prefixed with the old binary name: %q", p, line)
+			}
+		}
+	}
+	// The README title is the project name.
+	readme := read("../../README.md")
+	if !strings.Contains(readme, "<h1 align=\"center\">GitCoffer</h1>") {
+		t.Error("README title is not GitCoffer")
+	}
+}

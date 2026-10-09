@@ -20,8 +20,8 @@ management, recovery on a new machine, and maintenance.
 put both binaries on `PATH`. Verify with:
 
 ```console
-$ gitgitcoffer version
-coffer 1.0.0-pre
+$ gitcoffer version
+gitcoffer 1.0.0-pre
 $ git-remote-coffer          # run with no arguments, prints its usage note;
                              # normally git invokes it for you
 ```
@@ -133,10 +133,10 @@ bootstrapping, never a dependency.
 
 ## Leaving, and being sure you can
 
-`gitgitcoffer export-bundle <vault> <file.bundle>` decrypts the vault into a
+`gitcoffer export-bundle <vault> <file.bundle>` decrypts the vault into a
 standard git bundle that stock git alone can clone or verify — the exit
 path needs neither Coffer nor the vault format. The bundle file itself
-is plaintext, so store it accordingly. `gitgitcoffer doctor <vault>` gives a
+is plaintext, so store it accordingly. `gitcoffer doctor <vault>` gives a
 one-shot health report of the environment and the vault; boundaries of
 what is supported (LFS content, submodules, sha256, shallow clones,
 FAT32 file-size caps) are listed in

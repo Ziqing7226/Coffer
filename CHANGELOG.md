@@ -2,12 +2,12 @@
 
 ## Unreleased (toward 1.0.0)
 
-- `gitgitcoffer export-bundle <vault> <file>` — the guaranteed exit path: a
+- `gitcoffer export-bundle <vault> <file>` — the guaranteed exit path: a
   plain, stock-git-readable bundle of everything in the vault.
-- `gitgitcoffer doctor <vault>` — environment and vault health check (git
+- `gitcoffer doctor <vault>` — environment and vault health check (git
   version, helper discoverability, meta shape, key-file presence,
   filesystem characteristics, leftover state).
-- `gitgitcoffer gc --dry-run` — report what would be reclaimed without
+- `gitcoffer gc --dry-run` — report what would be reclaimed without
   deleting.
 - Pushes from Git-LFS-configured repositories warn that LFS content is
   not part of the vault.
