@@ -215,6 +215,18 @@ func ExistsInCaller(oid string) bool {
 	return exec.Command("git", "cat-file", "-e", oid+"^{object}").Run() == nil
 }
 
+// RunIn runs a git command with a cleaned environment inside dir, for
+// operations on scratch repositories.
+func RunIn(dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = CleanGitEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git %v: %v: %s", args, err, out)
+	}
+	return nil
+}
+
 // CallerObjectFormat returns the object format of the repository invoking
 // the helper ("sha1" or "sha256").
 func CallerObjectFormat() (string, error) {

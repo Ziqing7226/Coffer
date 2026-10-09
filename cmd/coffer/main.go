@@ -57,6 +57,10 @@ func main() {
 		err = gcCmd(os.Args[2:])
 	case "fsck":
 		err = fsckCmd(os.Args[2:])
+	case "doctor":
+		err = doctorCmd(os.Args[2:])
+	case "export-bundle":
+		err = exportBundleCmd(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -79,8 +83,10 @@ func usage() {
                                             [-keyfile <path>]
   coffer key remove <vault-directory> <id> remove a key slot (never the last one)
   coffer key list <vault-directory>        list key slots (no passphrase needed)
-  coffer gc <vault-directory>              remove orphaned objects, temp files, old generations
+  coffer gc [--dry-run] <vault-directory>  remove orphaned objects, temp files, old generations
   coffer fsck <vault-directory>            verify every structure of the vault
+  coffer doctor <vault-directory>          check the environment and the vault, and report
+  coffer export-bundle <vault-dir> <file>  export the vault as a plain git bundle
   coffer version                           print the build version
 `)
 }
@@ -369,8 +375,9 @@ func keyListCmd(args []string) error {
 
 func gcCmd(args []string) error {
 	fs := flag.NewFlagSet("gc", flag.ContinueOnError)
+	dryRun := fs.Bool("dry-run", false, "report what would be removed without deleting anything")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer gc <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: coffer gc [--dry-run] <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -381,6 +388,24 @@ func gcCmd(args []string) error {
 	pass, err := promptPassword("Passphrase")
 	if err != nil {
 		return err
+	}
+	if *dryRun {
+		rep, err := vault.GCDryRun(dir, pass)
+		if err != nil {
+			return err
+		}
+		for _, name := range rep.RemovedObjects {
+			fmt.Printf("would remove orphaned object %s\n", name)
+		}
+		for _, name := range rep.RemovedTmp {
+			fmt.Printf("would remove temp file %s\n", name)
+		}
+		for _, n := range rep.PrunedGenerations {
+			fmt.Printf("would prune manifest generation %d\n", n)
+		}
+		fmt.Printf("gc dry-run: would remove %d object(s), %d temp file(s), %d generation(s), freeing %s\n",
+			len(rep.RemovedObjects), len(rep.RemovedTmp), len(rep.PrunedGenerations), humanBytes(rep.BytesFreed))
+		return nil
 	}
 	rep, err := vault.GC(dir, pass)
 	if err != nil {

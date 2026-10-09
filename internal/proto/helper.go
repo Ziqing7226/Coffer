@@ -274,8 +274,21 @@ func (s *session) checkCallerRepository(forPush bool) error {
 			return fmt.Errorf(
 				"this repository is a shallow (depth-limited) clone; pushing would store truncated history and break later backups — run `git fetch --unshallow` against its current origin, then push again")
 		}
+		warnLFS()
 	}
 	return nil
+}
+
+// warnLFS points out that Git LFS content lives outside the git object
+// store and therefore outside the vault — only the pointer files are
+// backed up. Printed once per push; non-fatal.
+func warnLFS() {
+	data, err := os.ReadFile(".gitattributes")
+	if err != nil || !strings.Contains(string(data), "filter=lfs") {
+		return
+	}
+	fmt.Fprintln(os.Stderr,
+		"git-remote-coffer: warning: this repository uses Git LFS — LFS objects live outside the git object store and are NOT stored in the vault; back them up separately")
 }
 
 // serveFetch answers a fetch batch: it decrypts the object files containing
