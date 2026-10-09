@@ -72,6 +72,7 @@ jobs:
     container:
       image: golang:1.27-bookworm
     steps:
+      - uses: actions/checkout@v5   # checkout with the container's stock git
       - name: Build git 2.30.0 from source
         shell: bash
         run: |
@@ -86,15 +87,17 @@ jobs:
           # transports only, so OpenSSL and curl are unnecessary — and
           # building without them avoids git-2.30-vs-modern-OpenSSL 3
           # incompatibilities.
-          make -C /tmp/git-2.30.0 -j"$(nproc)" \
+          if ! make -C /tmp/git-2.30.0 -j"$(nproc)" \
             NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
-            prefix=/usr/local >/tmp/git-build.log 2>&1
+            prefix=/usr/local >/tmp/git-build.log 2>&1; then
+            tail -40 /tmp/git-build.log | sed 's/^/::error::GITBUILD: /'
+            exit 1
+          fi
           make -C /tmp/git-2.30.0 \
             NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
             prefix=/usr/local install >/dev/null
           /usr/local/bin/git --version
           case "$(/usr/local/bin/git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
-      - uses: actions/checkout@v5
       - name: Full suite against git 2.30
         shell: bash
         run: |
@@ -104,7 +107,9 @@ jobs:
           go test ./... -count=1 > /tmp/floor.log 2>&1
           status=$?
           set -e
-          cat /tmp/floor.log || true
+          if [ "$status" -ne 0 ]; then
+            grep -E '^(--- FAIL|FAIL|panic:|fatal)|_test\.go:[0-9]+:' /tmp/floor.log | head -10 | sed 's/^/::error::FLOOR: /'
+          fi
           exit "$status"
       - name: Cross-builds
         shell: bash
