@@ -250,11 +250,42 @@ func (s *session) listRefs() error {
 	return nil
 }
 
+// checkCallerRepository guards against caller states that would silently
+// damage the vault or the session: sha256 object ids cannot round-trip
+// through the vault's sha1 advertisements, and pushing from a shallow
+// clone would store truncated history — permanently, because later pushes
+// exclude what the vault's tips already claim to have.
+func (s *session) checkCallerRepository(forPush bool) error {
+	format, err := packproc.CallerObjectFormat()
+	if err != nil {
+		return err
+	}
+	if format != "sha1" {
+		return fmt.Errorf(
+			"this repository uses %s object ids, but Coffer vaults speak sha1 — the operation is refused rather than storing history the vault could not serve back",
+			format)
+	}
+	if forPush {
+		shallow, err := packproc.CallerIsShallow()
+		if err != nil {
+			return err
+		}
+		if shallow {
+			return fmt.Errorf(
+				"this repository is a shallow (depth-limited) clone; pushing would store truncated history and break later backups — run `git fetch --unshallow` against its current origin, then push again")
+		}
+	}
+	return nil
+}
+
 // serveFetch answers a fetch batch: it decrypts the object files containing
 // the requested objects into a scratch repository and imports the rebuilt
 // pack into the caller's object database, then emits the batch-complete
 // blank line.
 func (s *session) serveFetch(oids []string) error {
+	if err := s.checkCallerRepository(false); err != nil {
+		return err
+	}
 	if err := s.openStore(); err != nil {
 		return err
 	}
@@ -330,6 +361,9 @@ func (s *session) serveFetch(oids []string) error {
 // objects from the caller's repository, store them as one encrypted object
 // file, and commit the manifest (spec §6 ordering: objects, then manifest).
 func (s *session) applyPush(specs []string) (err error) {
+	if err := s.checkCallerRepository(true); err != nil {
+		return err
+	}
 	if err := s.openStore(); err != nil {
 		return err
 	}
@@ -404,7 +438,16 @@ func (s *session) applyPush(specs []string) (err error) {
 		report = append(report, "ok "+dst)
 	}
 
-	// Under --atomic, one failed ref means nothing is stored or committed.
+	// Under --atomic, one failed ref means nothing is stored or committed
+	// — and nothing is REPORTED as ok either: git displays per-ref results
+	// verbatim, so a mixed report would show pushes that never landed.
+	if s.atomic && failed {
+		for i, line := range report {
+			if strings.HasPrefix(line, "ok ") {
+				report[i] = fmt.Sprintf("error %s atomic batch aborted: another ref failed", strings.TrimPrefix(line, "ok "))
+			}
+		}
+	}
 	if !s.dryRun && !(s.atomic && failed) {
 		if pushed > 0 {
 			if err := s.storeNewObjects(revs); err != nil {
