@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 type diag struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Ziqing7226/Coffer/internal/bundle"
+	"github.com/Ziqing7226/GitCoffer/internal/bundle"
 )
 
 // exportBundleCmd exports a vault as a standard git bundle: the

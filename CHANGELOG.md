@@ -2,12 +2,12 @@
 
 ## Unreleased (toward 1.0.0)
 
-- `coffer export-bundle <vault> <file>` — the guaranteed exit path: a
+- `gitgitcoffer export-bundle <vault> <file>` — the guaranteed exit path: a
   plain, stock-git-readable bundle of everything in the vault.
-- `coffer doctor <vault>` — environment and vault health check (git
+- `gitgitcoffer doctor <vault>` — environment and vault health check (git
   version, helper discoverability, meta shape, key-file presence,
   filesystem characteristics, leftover state).
-- `coffer gc --dry-run` — report what would be reclaimed without
+- `gitgitcoffer gc --dry-run` — report what would be reclaimed without
   deleting.
 - Pushes from Git-LFS-configured repositories warn that LFS content is
   not part of the vault.
@@ -27,5 +27,5 @@ First pre-release: vault format v1 (frozen, pinned by
 [docs/test-vectors.json](docs/test-vectors.json)), remote helper with
 progress milestones, writer lock, `--atomic`/`--force-with-lease`,
 credential approval, HEAD fallback for non-main repositories; full
-`coffer` CLI (init, status, key add/remove/list, rekey, gc, fsck,
+`gitcoffer` CLI (init, status, key add/remove/list, rekey, gc, fsck,
 version); security-reviewed; six-platform release binaries.

@@ -42,7 +42,7 @@ func TestGoldenVaultFromV1_0_0Pre(t *testing.T) {
 	// The exit path works on the fixture too: a bundle cloned by stock
 	// git alone.
 	bundleFile := filepath.Join(t.TempDir(), "golden.bundle")
-	out, err := runCoffer(t, goldenPassphrase+"\n", "export-bundle", vaultDir, bundleFile)
+	out, err := runGitcoffer(t, goldenPassphrase+"\n", "export-bundle", vaultDir, bundleFile)
 	if err != nil {
 		t.Fatalf("export-bundle on golden vault: %v\n%s", err, out)
 	}

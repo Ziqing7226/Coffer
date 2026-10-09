@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 const fakeOID = "0123456789012345678901234567890123456789"

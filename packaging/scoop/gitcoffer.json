@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "description": "Encrypted git remote that lives on your own disk",
+  "homepage": "https://github.com/Ziqing7226/GitCoffer",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/Ziqing7226/GitCoffer/releases/download/v1.0.0/gitcoffer-1.0.0-windows-amd64.zip",
+      "hash": "fill-in-at-submission-from-checksums.txt"
+    },
+    "arm64": {
+      "url": "https://github.com/Ziqing7226/GitCoffer/releases/download/v1.0.0/gitcoffer-1.0.0-windows-arm64.zip",
+      "hash": "fill-in-at-submission-from-checksums.txt"
+    }
+  },
+  "bin": ["gitcoffer.exe", "git-remote-coffer.exe"],
+  "checkver": {
+    "github": "https://github.com/Ziqing7226/GitCoffer"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/Ziqing7226/GitCoffer/releases/download/v$version/gitcoffer-$version-windows-amd64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/Ziqing7226/GitCoffer/releases/download/v$version/gitcoffer-$version-windows-arm64.zip"
+      }
+    }
+  }
+}

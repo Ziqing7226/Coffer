@@ -27,9 +27,9 @@ jobs:
           for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
             os="${target%/*}"; arch="${target#*/}"
             exe=""; [ "$os" = "windows" ] && exe=".exe"
-            stage="coffer-${VERSION}-${os}-${arch}"
+            stage="gitcoffer-${VERSION}-${os}-${arch}"
             mkdir -p "dist/${stage}"
-            for cmd in coffer git-remote-coffer; do
+            for cmd in gitcoffer git-remote-coffer; do
               GOOS="$os" GOARCH="$arch" go build -trimpath \
                 -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
                 -o "dist/${stage}/${cmd}${exe}" "./cmd/${cmd}"
@@ -55,7 +55,7 @@ jobs:
             *-pre*|*-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
             *) PRE="" ;;
           esac
-          gh release create "$TAG" dist/coffer-* dist/checksums.txt \
+          gh release create "$TAG" dist/gitcoffer-* dist/checksums.txt \
             $PRE \
             --title "Coffer $TAG" \
-            --notes "Binaries for Linux (amd64, arm64), Windows (amd64, arm64), and macOS (amd64, arm64). Put \`coffer\` and \`git-remote-coffer\` on PATH; see the [user guide](https://github.com/Ziqing7226/Coffer/blob/main/docs/user-guide.md). Verify archives against \`checksums.txt\`."
+            --notes "Binaries for Linux (amd64, arm64), Windows (amd64, arm64), and macOS (amd64, arm64). Put \`gitcoffer\` and \`git-remote-coffer\` on PATH; see the [user guide](https://github.com/Ziqing7226/GitCoffer/blob/main/docs/user-guide.md). Verify archives against \`checksums.txt\`."

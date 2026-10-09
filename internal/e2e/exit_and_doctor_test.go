@@ -24,9 +24,9 @@ func TestExportBundleRoundTrip(t *testing.T) {
 	git(t, src, nil, "push", "-q", "origin", "v1.0")
 
 	bundleFile := filepath.Join(t.TempDir(), "exported.bundle")
-	out, err := runCoffer(t, passphrase+"\n", "export-bundle", vaultDir, bundleFile)
+	out, err := runGitcoffer(t, passphrase+"\n", "export-bundle", vaultDir, bundleFile)
 	if err != nil {
-		t.Fatalf("coffer export-bundle: %v\n%s", err, out)
+		t.Fatalf("gitcoffer export-bundle: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "3 ref(s)") {
 		t.Fatalf("unexpected export summary: %s", out)
@@ -58,7 +58,7 @@ func TestExportBundleRefusesOverwrite(t *testing.T) {
 	vaultDir := newVault(t)
 	existing := filepath.Join(t.TempDir(), "out.bundle")
 	os.WriteFile(existing, []byte("precious"), 0o644)
-	out, err := runCoffer(t, "", "export-bundle", vaultDir, existing)
+	out, err := runGitcoffer(t, "", "export-bundle", vaultDir, existing)
 	if err == nil || !strings.Contains(out, "refusing to overwrite") {
 		t.Fatalf("overwrite not refused: %v\n%s", err, out)
 	}
@@ -70,7 +70,7 @@ func TestDoctor(t *testing.T) {
 	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
 	git(t, src, nil, "push", "-q", "-u", "origin", "main")
 
-	out, err := runCoffer(t, "", "doctor", vaultDir)
+	out, err := runGitcoffer(t, "", "doctor", vaultDir)
 	if err != nil {
 		t.Fatalf("doctor on a healthy vault failed: %v\n%s", err, out)
 	}
@@ -82,11 +82,11 @@ func TestDoctor(t *testing.T) {
 
 	// A missing key file is a warning, not a failure — but it must appear.
 	keyfile := filepath.Join(t.TempDir(), "coffer.key")
-	if _, err2 := runCoffer(t, passphrase+"\nkp-pass\nkp-pass\n", "key", "add", "-keyfile", keyfile, vaultDir); err2 != nil {
+	if _, err2 := runGitcoffer(t, passphrase+"\nkp-pass\nkp-pass\n", "key", "add", "-keyfile", keyfile, vaultDir); err2 != nil {
 		t.Fatalf("key add: %v", err2)
 	}
 	os.Remove(keyfile)
-	out, err = runCoffer(t, "", "doctor", vaultDir)
+	out, err = runGitcoffer(t, "", "doctor", vaultDir)
 	if err != nil {
 		t.Fatalf("doctor failed on a warnable vault: %v\n%s", err, out)
 	}
@@ -97,7 +97,7 @@ func TestDoctor(t *testing.T) {
 	// A corrupt vault.meta is a failure.
 	os.Remove(filepath.Join(vaultDir, "vault.meta"))
 	os.WriteFile(filepath.Join(vaultDir, "vault.meta"), []byte("not json"), 0o600)
-	out, err = runCoffer(t, "", "doctor", vaultDir)
+	out, err = runGitcoffer(t, "", "doctor", vaultDir)
 	if err == nil || !strings.Contains(out, "[fail]") {
 		t.Fatalf("doctor did not fail on a corrupt vault.meta: %v\n%s", err, out)
 	}
@@ -111,7 +111,7 @@ func TestGCDryRunDeletesNothing(t *testing.T) {
 	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
 	gitFail(t, src, []string{"COFFER_CRASH=after-object-rename"}, "push", "origin", "main") // leaves an orphan
 
-	out, err := runCoffer(t, passphrase+"\n", "gc", "--dry-run", vaultDir)
+	out, err := runGitcoffer(t, passphrase+"\n", "gc", "--dry-run", vaultDir)
 	if err != nil {
 		t.Fatalf("gc --dry-run: %v\n%s", err, out)
 	}
@@ -122,7 +122,7 @@ func TestGCDryRunDeletesNothing(t *testing.T) {
 		t.Fatalf("dry-run changed the vault: %d packs", got)
 	}
 
-	out, err = runCoffer(t, passphrase+"\n", "gc", vaultDir)
+	out, err = runGitcoffer(t, passphrase+"\n", "gc", vaultDir)
 	if err != nil {
 		t.Fatalf("gc: %v\n%s", err, out)
 	}

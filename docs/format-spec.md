@@ -48,8 +48,8 @@ authentication.
 
 ## 3. `vault.meta` (plaintext)
 
-A single JSON object, created by `coffer init`, rewritten only by
-`coffer rekey` — in both cases atomically (§6).
+A single JSON object, created by `gitcoffer init`, rewritten only by
+`gitcoffer rekey` — in both cases atomically (§6).
 
 ```json
 {
@@ -131,7 +131,7 @@ Rules:
   Readers MUST ignore `.tmp` files and older generations except for chain
   verification.
 - `prev` chains manifests so that interrupted or reordered history is
-  detectable by `coffer fsck`. A vault opens as long as the newest manifest
+  detectable by `gitcoffer fsck`. A vault opens as long as the newest manifest
   authenticates; the chain is a diagnostic, not a gate.
 - `refs` uses fully qualified refnames. Deleting a ref is simply a manifest
   rewrite without it.
@@ -156,7 +156,7 @@ file       = chunk_0 || chunk_1 || …
 ```
 
 - Object files are immutable once committed. They are removed only by
-  `coffer gc`, never rewritten.
+  `gitcoffer gc`, never rewritten.
 - `packs[file].size` in the manifest determines the plaintext length and
   therefore the chunk count; no length prefixes appear in the file.
 - Chunking at 64 MiB bounds memory, enables streaming, and localizes damage:
@@ -194,7 +194,7 @@ and `obj/` carry meaning.
 
 - AEAD failure on any structure is a hard error naming the file and chunk;
   implementations MUST NOT attempt recovery by re-deriving or guessing.
-- `coffer fsck` verifies every AEAD, the `prev` chain, the ref inventory,
+- `gitcoffer fsck` verifies every AEAD, the `prev` chain, the ref inventory,
   and pack checksums, and reports the first divergence per structure.
 
 ## 8. Test vectors

@@ -28,7 +28,7 @@ fresh clone 3.4 s, incremental push 3.5 s — see
 | Shallow (depth-limited) clones | Push is **refused** with the `git fetch --unshallow` remedy: a shallow push would store truncated history and poison later incremental pushes. CI checkouts are shallow — unshallow them before backing up. |
 | Git LFS | **Not backed up.** LFS content lives on LFS servers, outside the git object store; the vault holds only pointer files. Pushes from LFS-configured repositories print a warning. Keep LFS objects backed up separately. |
 | Submodules | The gitlink (commit pointer) is stored like any ref content; the submodule's own repository is a separate repository and is **not** included. Back each submodule up on its own. |
-| FAT32 / exFAT media | Fully supported (plain files, no permissions needed), with one boundary: these filesystems cap a single file at ~4 GiB, and one vault object file holds one pack — repositories whose packs exceed that need a filesystem without the cap. `coffer doctor` warns when it detects such media. |
+| FAT32 / exFAT media | Fully supported (plain files, no permissions needed), with one boundary: these filesystems cap a single file at ~4 GiB, and one vault object file holds one pack — repositories whose packs exceed that need a filesystem without the cap. `gitcoffer doctor` warns when it detects such media. |
 | Case-insensitive filesystems | Safe: vault file names are lowercase hex digits only. |
 | Non-ASCII and spaced paths | Fully supported in repository content and vault paths. |
 | Bare repositories | Pushing from a bare repository works — the object flow is identical. |
@@ -41,5 +41,5 @@ The vault plus the passphrase reconstruct every ref and the complete
 history of each, on any supported machine, with `git clone`. Two things a
 vault deliberately does not carry: the original repository's HEAD choice
 (clones check out `main`, then `master`, then the alphabetically first
-branch) and reflogs. `coffer export-bundle` writes a plain git bundle of
+branch) and reflogs. `gitcoffer export-bundle` writes a plain git bundle of
 everything, readable by stock git alone.

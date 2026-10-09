@@ -55,7 +55,7 @@ func gc(dir, passphrase string, dryRun bool) (*GCReport, error) {
 	for _, n := range manifestGenerations(dir) {
 		m, _, err := s.readManifestNum(n)
 		if err != nil {
-			return nil, fmt.Errorf("generation %d unreadable: %v — gc refuses to delete anything; run coffer fsck", n, err)
+			return nil, fmt.Errorf("generation %d unreadable: %v — gc refuses to delete anything; run gitcoffer fsck", n, err)
 		}
 		for name := range m.Packs {
 			referenced[name] = true
@@ -122,16 +122,16 @@ func gc(dir, passphrase string, dryRun bool) (*GCReport, error) {
 
 	// Re-enforce the generation bound (commits already prune; a vault
 	// assembled from copies may carry more).
-	before := manifestGenerations(dir)
-	if !dryRun {
-		s.pruneGenerations(s.manifestNum, s.manifest.Generations.Kept)
-	}
-	after := map[int]bool{}
+	// Generation pruning: report what falls outside the kept bound. In
+	// dry-run nothing is deleted — the report lists what a real pass
+	// would prune.
+	newest := s.manifestNum
+	kept := s.manifest.Generations.Kept
 	for _, n := range manifestGenerations(dir) {
-		after[n] = true
-	}
-	for _, n := range before {
-		if !after[n] {
+		if n < newest-kept+1 {
+			if !dryRun {
+				os.Remove(filepath.Join(dir, fmt.Sprintf("%s%d", manifestPrefix, n)))
+			}
 			rep.PrunedGenerations = append(rep.PrunedGenerations, n)
 		}
 	}

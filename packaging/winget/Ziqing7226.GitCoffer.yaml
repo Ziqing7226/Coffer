@@ -1,13 +1,13 @@
 # winget-pkgs submission template; PackageVersion and Installer hashes are
 # finalized at submission time from the stable 1.0.0 release.
-PackageIdentifier: Ziqing7226.Coffer
+PackageIdentifier: Ziqing7226.GitCoffer
 PackageVersion: 1.0.0
-PackageName: Coffer
+PackageName: GitCoffer
 Publisher: Ziqing7226
 License: MIT
 ShortDescription: Encrypted git remote that lives on your own disk
-PackageUrl: https://github.com/Ziqing7226/Coffer
-Moniker: coffer
+PackageUrl: https://github.com/Ziqing7226/GitCoffer
+Moniker: gitcoffer
 Tags:
   - git
   - backup
@@ -15,13 +15,13 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: zip
-    InstallerUrl: https://github.com/Ziqing7226/Coffer/releases/download/v1.0.0/coffer-1.0.0-windows-amd64.zip
+    InstallerUrl: https://github.com/Ziqing7226/GitCoffer/releases/download/v1.0.0/gitcoffer-1.0.0-windows-amd64.zip
     InstallerSha256: fill-in-at-submission-from-checksums.txt
     NestedInstallerType: portable
     NestedInstallerFiles:
-      - RelativeFilePath: coffer-1.0.0-windows-amd64/coffer.exe
-        PortableCommandAlias: coffer
-      - RelativeFilePath: coffer-1.0.0-windows-amd64/git-remote-coffer.exe
+      - RelativeFilePath: gitcoffer-1.0.0-windows-amd64/gitcoffer.exe
+        PortableCommandAlias: gitcoffer
+      - RelativeFilePath: gitcoffer-1.0.0-windows-amd64/git-remote-coffer.exe
         PortableCommandAlias: git-remote-coffer
 ManifestType: singleton
 ManifestVersion: 1.4.0

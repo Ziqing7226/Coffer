@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 // Finding is one fsck observation. Err findings mean the vault is damaged
 // (or inconsistent with its manifest); Info findings are hygiene items
-// that coffer gc addresses.
+// that gitcoffer gc addresses.
 type Finding struct {
 	Structure string // "meta", "manifest", "chain", "refs", "obj", "hygiene"
 	Detail    string
@@ -192,7 +192,7 @@ func Fsck(dir, passphrase string) ([]Finding, error) {
 				continue
 			}
 			if !referenced[e.Name()] {
-				add("hygiene", fmt.Sprintf("obj/%s is referenced by no generation (coffer gc removes it)", e.Name()), false)
+				add("hygiene", fmt.Sprintf("obj/%s is referenced by no generation (gitcoffer gc removes it)", e.Name()), false)
 			}
 		}
 	}
@@ -200,7 +200,7 @@ func Fsck(dir, passphrase string) ([]Finding, error) {
 	if err == nil {
 		for _, e := range rootEntries {
 			if !e.IsDir() && filepath.Ext(e.Name()) == ".tmp" {
-				add("hygiene", fmt.Sprintf("%s is a leftover temp file (coffer gc removes it)", e.Name()), false)
+				add("hygiene", fmt.Sprintf("%s is a leftover temp file (gitcoffer gc removes it)", e.Name()), false)
 			}
 		}
 	}

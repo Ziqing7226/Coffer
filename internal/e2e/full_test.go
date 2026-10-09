@@ -24,7 +24,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/Ziqing7226/Coffer/internal/vault"
+	"github.com/Ziqing7226/GitCoffer/internal/vault"
 )
 
 func TestDiskFullRobustness(t *testing.T) {
@@ -166,7 +166,7 @@ func TestDiskFullRobustness(t *testing.T) {
 	// Rekey at zero free space must fail cleanly and leave the old
 	// passphrase working.
 	setFree(0)
-	out, err := runCoffer(t, passphrase+"\nspun-pass\nspun-pass\n", "rekey", vaultDir)
+	out, err := runGitcoffer(t, passphrase+"\nspun-pass\nspun-pass\n", "rekey", vaultDir)
 	if err == nil {
 		t.Logf("rekey at ~0 free unexpectedly succeeded (small enough meta?): %s", out)
 		if _, oerr := vault.Open(vaultDir, "spun-pass"); oerr != nil {
@@ -189,7 +189,7 @@ func TestDiskFullRobustness(t *testing.T) {
 	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
 		t.Fatal("recovery push did not land")
 	}
-	if out, err := runCoffer(t, passphrase+"\n", "gc", vaultDir); err != nil {
+	if out, err := runGitcoffer(t, passphrase+"\n", "gc", vaultDir); err != nil {
 		t.Fatalf("gc after recovery: %v\n%s", err, out)
 	}
 	findings, err := vault.Fsck(vaultDir, passphrase)

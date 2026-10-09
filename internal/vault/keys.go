@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Ziqing7226/Coffer/internal/crypto"
+	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
 
 // slotSecret assembles the KDF input for one slot. A relative key-file

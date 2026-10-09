@@ -6,9 +6,9 @@ time from the released archives (`checksums.txt` on the release page).
 
 | Store | Manifest | Destination |
 |---|---|---|
-| Homebrew | [homebrew/coffer.rb](homebrew/coffer.rb) | homebrew-core (or a custom tap) |
-| scoop | [scoop/coffer.json](scoop/coffer.json) | scoop-community/ScoopInstallerExtras or a personal bucket |
-| winget | [winget/Ziqing7226.Coffer.yaml](winget/Ziqing7226.Coffer.yaml) | microsoft/winget-pkgs |
+| Homebrew | [homebrew/gitcoffer.rb](homebrew/gitcoffer.rb) | homebrew-core (or a custom tap) |
+| scoop | [scoop/gitcoffer.json](scoop/gitcoffer.json) | scoop-community/ScoopInstallerExtras or a personal bucket |
+| winget | [winget/Ziqing7226.GitCoffer.yaml](winget/Ziqing7226.GitCoffer.yaml) | microsoft/winget-pkgs |
 
-Until then, users install from the [release archives](https://github.com/Ziqing7226/Coffer/releases)
-or with `go install github.com/Ziqing7226/Coffer/cmd/{coffer,git-remote-coffer}@<tag>`.
+Until then, users install from the [release archives](https://github.com/Ziqing7226/GitCoffer/releases)
+or with `go install github.com/Ziqing7226/GitCoffer/cmd/{gitcoffer,git-remote-coffer}@<tag>`.
