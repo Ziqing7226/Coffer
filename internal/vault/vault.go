@@ -92,6 +92,7 @@ type Store struct {
 	manifest    *Manifest
 	manifestNum int
 	payloadHash string
+	lockGuard   string // content of our vault.lock, empty when unlocked
 }
 
 // Dir returns the vault directory.
@@ -254,6 +255,32 @@ func manifestGenerations(dir string) []int {
 // newest first.
 func GenerationNums(dir string) []int { return manifestGenerations(dir) }
 
+// AcquireLock takes the vault writer lock (spec §6, writer lock) so
+// concurrent writers cannot lose each other's updates. Commit refuses to
+// run if the lock was stolen while we held it. The returned release
+// function drops the lock; call it when the write operation ends.
+func (s *Store) AcquireLock() (func(), error) {
+	release, guard, err := acquireLock(s.dir)
+	if err != nil {
+		return nil, err
+	}
+	s.lockGuard = guard
+	return release, nil
+}
+
+// Reload re-reads the newest authenticating manifest generation, adopting
+// changes other writers committed since Open.
+func (s *Store) Reload() error {
+	for _, n := range manifestGenerations(s.dir) {
+		m, hash, err := s.readManifestNum(n)
+		if err == nil {
+			s.manifest, s.manifestNum, s.payloadHash = m, n, hash
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: no usable manifest generation on reload", ErrCorrupt)
+}
+
 // WriteObject encrypts plaintext into a new immutable object file and
 // returns its name. Following spec §6, the file is written to a temp name,
 // fsynced, renamed, and the directory flushed; it is never modified again.
@@ -290,7 +317,7 @@ func (s *Store) WriteObject(plain io.Reader) (string, error) {
 		os.Remove(tmp)
 		return "", err
 	}
-	crashPoint("after-object-write")
+	s.crashPoint("after-object-write")
 	if err := os.Rename(tmp, objPath); err != nil {
 		os.Remove(tmp)
 		return "", err
@@ -298,7 +325,7 @@ func (s *Store) WriteObject(plain io.Reader) (string, error) {
 	if err := syncDir(filepath.Join(s.dir, objDirName)); err != nil {
 		return "", err
 	}
-	crashPoint("after-object-rename")
+	s.crashPoint("after-object-rename")
 	return name, nil
 }
 
@@ -353,7 +380,16 @@ func (s *Store) commit(next *Manifest) error {
 	if err != nil {
 		return err
 	}
-	crashPoint("before-manifest-commit")
+	// Under the writer lock, verify we still hold it: if a long operation
+	// outlived lockStaleAfter and another writer stole the lock, committing
+	// now would clobber its update.
+	if s.lockGuard != "" {
+		cur, err := os.ReadFile(filepath.Join(s.dir, lockName))
+		if err != nil || string(cur) != s.lockGuard {
+			return errors.New("vault writer lock was taken over by another operation; commit aborted — retry the operation")
+		}
+	}
+	s.crashPoint("before-manifest-commit")
 	record, err := crypto.SealManifest(s.dek, s.meta.ID, payload)
 	if err != nil {
 		return err
@@ -368,7 +404,7 @@ func (s *Store) commit(next *Manifest) error {
 		f.Sync()
 		f.Close()
 	}
-	crashPoint("after-manifest-write")
+	s.crashPoint("after-manifest-write")
 	final := filepath.Join(s.dir, fmt.Sprintf("%s%d", manifestPrefix, newNum))
 	if err := os.Rename(tmp, final); err != nil {
 		os.Remove(tmp)
@@ -377,7 +413,7 @@ func (s *Store) commit(next *Manifest) error {
 	if err := syncDir(s.dir); err != nil {
 		return err
 	}
-	crashPoint("after-manifest-commit")
+	s.crashPoint("after-manifest-commit")
 	s.pruneGenerations(newNum, next.Generations.Kept)
 	s.manifest, s.manifestNum, s.payloadHash = next, newNum, crypto.Hash(payload)
 	return nil

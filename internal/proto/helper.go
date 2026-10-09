@@ -302,6 +302,21 @@ func (s *session) applyPush(specs []string) (err error) {
 			s.progressf("done in %s", time.Since(started).Round(time.Millisecond))
 		}
 	}()
+
+	// Serialize writers end-to-end: the exclusions and the manifest commit
+	// below must see a stable vault state, or a concurrent push could be
+	// lost. Under the lock, adopt whatever other writers committed.
+	if !s.dryRun {
+		s.progressf("acquiring vault writer lock")
+		release, err := s.store.AcquireLock()
+		if err != nil {
+			return err
+		}
+		defer release()
+		if err := s.store.Reload(); err != nil {
+			return err
+		}
+	}
 	m := s.store.Manifest()
 	byName := make(map[string]vault.RefVal, len(m.Refs))
 	for name, rv := range m.Refs {

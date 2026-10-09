@@ -163,6 +163,15 @@ A crash at any point leaves either the previous state or the new state —
 never a mixture. Any `.tmp` file a reader finds is garbage by definition;
 `gc` sweeps it.
 
+**Writer lock.** A writer MUST hold the lock file `vault.lock` (exclusively
+created, removed at the end of the write operation) for the whole write:
+reading the current state, storing object files, and committing the
+manifest. A lock left behind by a crashed writer MAY be removed once its
+holder is provably gone or after a generous staleness interval (the
+reference implementation uses 15 minutes). Readers MUST ignore
+`vault.lock`, as they MUST ignore any unrecognized file in the vault root:
+only `vault.meta`, `manifest.<n>`, and `obj/` carry meaning.
+
 ## 7. Corruption and tamper semantics
 
 - AEAD failure on any structure is a hard error naming the file and chunk;

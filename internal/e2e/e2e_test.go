@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Ziqing7226/Coffer/internal/crypto"
 	"github.com/Ziqing7226/Coffer/internal/vault"
@@ -372,6 +373,51 @@ func TestCredentialApprovedAfterSuccess(t *testing.T) {
 	if _, err := os.Stat(credFile2); err == nil {
 		d, _ := os.ReadFile(credFile2)
 		t.Fatalf("rejected passphrase was approved and cached:\n%s", d)
+	}
+}
+
+// TestWriterLockBlocksAndRecovers verifies the vault writer lock end to
+// end: a fresh foreign lock makes pushes fail with an actionable message
+// and leaves the vault untouched; a stale lock is stolen so operation
+// resumes without manual cleanup.
+func TestWriterLockBlocksAndRecovers(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	git(t, src, nil, "push", "-q", "-u", "origin", "main")
+	tip := rev(t, src, "main")
+
+	lock := filepath.Join(vaultDir, "vault.lock")
+	fresh := []byte("host=someone-else\npid=999999\nstarted=" + time.Now().UTC().Format(time.RFC3339) + "\n")
+	if err := os.WriteFile(lock, fresh, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
+	out := gitFail(t, src, nil, "push", "origin", "main")
+	if !strings.Contains(out, "another coffer operation") {
+		t.Fatalf("blocked push lacks lock diagnostic: %s", out)
+	}
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != tip {
+		t.Fatal("blocked push changed the vault")
+	}
+
+	// The lock outlived its staleness window (simulating a crashed holder:
+	// started long ago): the next push steals it and succeeds.
+	old := time.Now().UTC().Add(-20 * time.Minute)
+	stale := []byte("host=someone-else\npid=999999\nstarted=" + old.Format(time.RFC3339) + "\n")
+	if err := os.WriteFile(lock, stale, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(lock, old, old); err != nil {
+		t.Fatal(err)
+	}
+	git(t, src, nil, "push", "-q", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("push after stale-lock steal did not land")
+	}
+	if _, err := os.Stat(lock); err == nil {
+		t.Fatal("lock file not removed after the push completed")
 	}
 }
 
