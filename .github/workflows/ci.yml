@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          go-version: stable
+          go-version-file: go.mod
       - name: Vet
         shell: bash
         run: |
@@ -40,6 +40,19 @@ jobs:
             } | sed 's/^/::error::TEST: /'
           fi
           exit "$status"
+      - name: Test with the race detector
+        # The race detector needs a C toolchain everywhere but Linux;
+        # one fully-instrumented leg catches what the fast legs miss.
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: go test -race ./... -count=1
+      - name: Vulnerability scan (govulncheck)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
       - name: Cross-builds
         shell: bash
         run: |
@@ -49,3 +62,57 @@ jobs:
           GOOS=linux GOARCH=arm64 go build ./...
           GOOS=darwin GOARCH=amd64 go build ./...
           GOOS=darwin GOARCH=arm64 go build ./...
+
+  # The supported git floor is 2.30 (the first release with the helper
+  # object-format capability) — this leg builds git 2.30.0 from source
+  # and runs the whole suite against it, so the claim is tested, not
+  # asserted.
+  floor-git-230:
+    runs-on: ubuntu-latest
+    container:
+      image: golang:1.27-bookworm
+    steps:
+      - uses: actions/checkout@v5   # checkout with the container's stock git
+      - name: Build git 2.30.0 from source
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends \
+            ca-certificates curl make gcc zlib1g-dev xz-utils
+          curl -fsSL https://www.kernel.org/pub/software/scm/git/git-2.30.0.tar.xz \
+            -o /tmp/git.tar.xz
+          tar -xJf /tmp/git.tar.xz -C /tmp
+          # Minimal feature set: the suite exercises local and helper
+          # transports only, so OpenSSL and curl are unnecessary — and
+          # building without them avoids git-2.30-vs-modern-OpenSSL 3
+          # incompatibilities.
+          if ! make -C /tmp/git-2.30.0 -j"$(nproc)" \
+            NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
+            prefix=/usr/local >/tmp/git-build.log 2>&1; then
+            tail -40 /tmp/git-build.log | sed 's/^/::error::GITBUILD: /'
+            exit 1
+          fi
+          make -C /tmp/git-2.30.0 \
+            NO_TCLTK=1 NO_GETTEXT=1 NO_OPENSSL=1 NO_CURL=1 \
+            prefix=/usr/local install >/dev/null
+          /usr/local/bin/git --version
+          case "$(/usr/local/bin/git --version)" in *"version 2.30."*) ;; *) echo "unexpected git version"; exit 1 ;; esac
+      - name: Full suite against git 2.30
+        shell: bash
+        run: |
+          set +e
+          export PATH=/usr/local/bin:"$PATH"   # the freshly built 2.30 first
+          git --version
+          go test ./... -count=1 > /tmp/floor.log 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            grep -E '^(--- FAIL|FAIL|panic:|fatal)|_test\.go:[0-9]+:' /tmp/floor.log | head -10 | sed 's/^/::error::FLOOR: /'
+          fi
+          exit "$status"
+      - name: Cross-builds
+        shell: bash
+        run: |
+          export PATH=/usr/local/bin:"$PATH"
+          go build ./...
