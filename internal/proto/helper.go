@@ -37,6 +37,7 @@ type session struct {
 	vaultDir string
 	store    *vault.Store
 	dryRun   bool
+	atomic   bool
 	progress bool
 	in       *bufio.Reader
 	out      *bufio.Writer
@@ -179,6 +180,20 @@ func (s *session) handleOption(arg string) {
 			s.replySingle("ok")
 		default:
 			s.replySingle("error progress expects true or false")
+		}
+	case "atomic":
+		// Truthful: all refs of a batch land in one manifest rename, and
+		// under atomic any per-ref error skips storing and committing
+		// entirely — git's all-or-nothing contract for --atomic.
+		switch value {
+		case "true":
+			s.atomic = true
+			s.replySingle("ok")
+		case "false":
+			s.atomic = false
+			s.replySingle("ok")
+		default:
+			s.replySingle("error atomic expects true or false")
 		}
 	case "verbosity", "object-format":
 		// Acknowledged; verbosity is cosmetic and the object-format keyword
@@ -334,11 +349,13 @@ func (s *session) applyPush(specs []string) (err error) {
 
 	var report []string
 	pushed := 0
+	failed := false
 	for _, spec := range specs {
 		spec = strings.TrimPrefix(spec, "+")
 		i := strings.Index(spec, ":")
 		if i < 0 {
 			report = append(report, fmt.Sprintf("error %s malformed push specification", spec))
+			failed = true
 			continue
 		}
 		src, dst := spec[:i], spec[i+1:]
@@ -352,6 +369,7 @@ func (s *session) applyPush(specs []string) (err error) {
 			resolved, err := packproc.ResolveInCaller(src)
 			if err != nil {
 				report = append(report, fmt.Sprintf("error %s %v", dst, err))
+				failed = true
 				continue
 			}
 			oid = resolved
@@ -362,12 +380,13 @@ func (s *session) applyPush(specs []string) (err error) {
 		report = append(report, "ok "+dst)
 	}
 
-	if pushed > 0 && !s.dryRun {
-		if err := s.storeNewObjects(revs); err != nil {
-			return err
+	// Under --atomic, one failed ref means nothing is stored or committed.
+	if !s.dryRun && !(s.atomic && failed) {
+		if pushed > 0 {
+			if err := s.storeNewObjects(revs); err != nil {
+				return err
+			}
 		}
-	}
-	if !s.dryRun {
 		m.Refs = byName
 		if err := s.store.Commit(m); err != nil {
 			return err

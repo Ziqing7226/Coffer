@@ -421,6 +421,49 @@ func TestWriterLockBlocksAndRecovers(t *testing.T) {
 	}
 }
 
+// TestAtomicPushAndForceWithLease: --atomic pushes land every ref of the
+// batch or none; --force-with-lease is a git-side check against the refs we
+// advertise, so a stale lease is rejected before the vault is touched.
+func TestAtomicPushAndForceWithLease(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
+	git(t, src, nil, "branch", "feature")
+	commit(t, src, "feature.txt", "feature\n", "commit feature")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+
+	git(t, src, nil, "push", "-q", "--atomic", "origin", "main", "feature")
+	s := openVault(t, vaultDir)
+	if got := s.Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("atomic push: main mismatch")
+	}
+	if got := s.Manifest().Refs["refs/heads/feature"].OID; got != rev(t, src, "feature") {
+		t.Fatal("atomic push: feature mismatch")
+	}
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	git(t, t.TempDir(), nil, "clone", "-q", vaultURL(vaultDir), clone)
+	commit(t, clone, "file.txt", "one\ntwo\nthree\n", "commit three")
+
+	// Pretend the clone's view of origin/main is stale: force-with-lease
+	// must reject the push and leave the vault untouched.
+	git(t, clone, nil, "update-ref", "refs/remotes/origin/main", "refs/remotes/origin/main~1")
+	out := gitFail(t, clone, nil, "push", "--force-with-lease", "origin", "main")
+	if !strings.Contains(out, "rejected") && !strings.Contains(out, "stale") {
+		t.Fatalf("stale lease not rejected: %s", out)
+	}
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
+		t.Fatal("stale-lease push changed the vault")
+	}
+
+	// With the lease refreshed, the same push succeeds.
+	git(t, clone, nil, "fetch", "-q", "origin")
+	git(t, clone, nil, "push", "-q", "--force-with-lease", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, clone, "main") {
+		t.Fatal("force-with-lease push did not land")
+	}
+}
+
 func TestWrongPassphraseRejected(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")
