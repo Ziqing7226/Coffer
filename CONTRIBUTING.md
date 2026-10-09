@@ -28,8 +28,8 @@ logical change per commit, imperative subject line, body explaining the
 ## Pull request checklist
 
 - [ ] English only (see above).
-- [ ] Tests cover the change, and golden protocol tests pass on Linux and
-      Windows (once the code phases are active).
+- [ ] Tests cover the change, and golden protocol tests pass on Linux,
+      Windows, and macOS (once the code phases are active).
 - [ ] Behavior-affecting change: docs/format-spec.md or docs/architecture.md
       updated in the same PR, with version fields bumped where applicable.
 - [ ] No real names, personal paths, or machine-specific details anywhere.

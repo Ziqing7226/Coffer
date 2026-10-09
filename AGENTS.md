@@ -6,11 +6,12 @@ Guide for AI agents (and humans in a hurry) working in this repository.
 
 Coffer is an encrypted git remote: a remote helper (`git-remote-coffer`)
 that lets unmodified git push to and clone from a passphrase-protected vault
-directory on a secondary or removable disk. Linux and Windows are
+directory on a secondary or removable disk. Linux, Windows, and macOS are
 first-class; VSCode works because git works.
 
 **Current state: Phase 1 (MVP) implemented** — vault format v1, the
-`git-remote-coffer` helper, the `coffer` CLI, and CI on Linux and Windows.
+`git-remote-coffer` helper, the `coffer` CLI, and CI on Linux, Windows,
+and macOS.
 docs/development.md tracks phase status and what remains (hardening, key
 management, packaging).
 

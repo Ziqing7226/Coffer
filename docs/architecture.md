@@ -14,9 +14,9 @@ removable disk and lets unmodified git push to, fetch from, and clone it.
   reconstruct the repository on a fresh machine.
 - An experience indistinguishable from pushing to any other remote —
   including from VSCode — using stock, unmodified git.
-- Linux and Windows as first-class platforms; a single static binary with no
-  runtime dependencies (no GPG, no FUSE, no drivers, no administrator
-  rights).
+- Linux, Windows, and macOS as first-class platforms; a single static
+  binary with no runtime dependencies (no GPG, no FUSE, no drivers, no
+  administrator rights).
 - Crash safety: an interrupted push must never corrupt the vault.
 - Cheap key rotation: changing a passphrase must not re-encrypt object data.
 
@@ -170,16 +170,28 @@ git config --global url."coffer::/mnt/usb/".insteadOf "usb://"
 # now: git remote add origin usb://myproject.coffer
 ```
 
-## Windows specifics
+## Platform specifics
+
+Windows:
 
 - The URL scheme is split at the first `::`; the remainder is a verbatim
   path: `coffer::D:\backups\repo.coffer` and UNC paths
   (`coffer::\\server\share\repo.coffer`) work unchanged.
-- Helper stdio is binary-safe; the protocol handler must never perform CRLF
-  translation on either platform.
+- Helper stdio is binary-safe; the protocol handler never performs CRLF
+  translation.
 - The vault is a plain directory of plain files — no symlinks, no
   permissions, no reparse points — so exFAT and FAT32 media are fully
   supported and no administrator rights are needed.
-- All writes are fsynced before the helper exits, so a safe removal after a
-  completed push is always clean; locked-file and device-removal errors are
-  surfaced as actionable messages, not stack traces.
+
+macOS:
+
+- No code path differs from Linux: POSIX fsync and atomic-rename semantics
+  carry the write ordering unchanged, and terminal credential prompts
+  behave the same.
+- Vault file names are lowercase hex digits only, so the case-insensitive
+  default APFS volume cannot mangle or collide them.
+
+All platforms: writes are fsynced before the helper exits, so a safe
+removal after a completed push is always clean; locked-file and
+device-removal errors are surfaced as actionable messages, not stack
+traces.

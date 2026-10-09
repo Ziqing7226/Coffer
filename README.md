@@ -13,7 +13,7 @@
 <p align="center">
   <img alt="status: phase 1 — MVP" src="https://img.shields.io/badge/status-phase%201%20%E2%80%94%20MVP-d4a017">
   &nbsp;
-  <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20Windows-6e7681">
+  <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-6e7681">
   &nbsp;
   <img alt="license" src="https://img.shields.io/badge/license-MIT-6e7681">
 </p>
@@ -28,9 +28,9 @@ branch, tag, and commit — can be reconstructed from the vault alone.
 
 **Coffer implements vault format v1**: the encrypted store, the remote
 helper, and the `coffer` CLI are working and covered by tests that drive
-real git on Linux and Windows. Hardening, key management, and packaging are
-on the [roadmap](#roadmap); until v1.0, treat vaults as not yet long-term
-stable.
+real git on Linux, Windows, and macOS. Hardening, key management, and
+packaging are on the [roadmap](#roadmap); until v1.0, treat vaults as
+not yet long-term stable.
 
 ## Why
 
@@ -66,6 +66,7 @@ To coffer::/mnt/usb/myproject.coffer
 ```
 
 On Windows: `git remote add origin coffer::D:\backups\myproject.coffer`.
+On macOS: `git remote add origin coffer::/Volumes/Backup/myproject.coffer`.
 
 From then on, `git pull`, `git fetch`, `git clone`, and VSCode's Sync button
 all work against the vault with no further configuration. You need a stock
@@ -124,7 +125,7 @@ zero-dependency" quadrant is empty.
 
 - [x] **Specification** — architecture, vault format v1, threat model
 - [x] **Phase 0 — Spike** — helper protocol and credential flow proven end-to-end (Linux; spike branch)
-- [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux and Windows
+- [x] **Phase 1 — MVP** — `git-remote-coffer` with push/fetch/clone against format v1; CI on Linux, Windows, and macOS
 - [ ] **Phase 2 — Hardening** — progress reporting, actionable errors, VSCode validation pass
 - [ ] **Phase 3 — Key management** — multiple key slots, `rekey`, `coffer gc` / `coffer fsck`
 - [ ] **Phase 4 — v1.0** — packaging (scoop, winget, Homebrew), user guide, security review
