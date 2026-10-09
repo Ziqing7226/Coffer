@@ -20,9 +20,20 @@ func GetPassphrase(vaultID string) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("obtaining passphrase: %v: %s", err, stderr.String())
 	}
-	for _, line := range strings.Split(stdout.String(), "\n") {
-		if v, ok := strings.CutPrefix(line, "password="); ok && v != "" {
-			return v, nil
+	return parseCredential(stdout.String())
+}
+
+// parseCredential extracts the password attribute from `git credential`
+// output. A trailing \r is trimmed defensively: Windows askpass scripts
+// (.bat echo) end lines with CRLF, and any layer that passes it through
+// verbatim would otherwise corrupt the passphrase.
+func parseCredential(out string) (string, error) {
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(line, "password="); ok {
+			v = strings.TrimRight(v, "\r")
+			if v != "" {
+				return v, nil
+			}
 		}
 	}
 	return "", errors.New("no passphrase supplied for the vault: the terminal prompt, GIT_ASKPASS, or credential helper returned an empty value")

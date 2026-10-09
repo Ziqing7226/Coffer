@@ -175,3 +175,19 @@ func TestCallerGuardsRejectBadRepositories(t *testing.T) {
 		t.Fatalf("shallow caller not refused: %v", err)
 	}
 }
+
+func TestParseCredentialTrimsWindowsLineEndings(t *testing.T) {
+	// A Windows askpass (.bat echo) or any CRLF-leaking layer must not
+	// corrupt the passphrase: git itself normally strips \r, this guards
+	// the layers that do not.
+	got, err := parseCredential("protocol=coffer\r\nhost=coffer\r\npath=abc\r\nusername=coffer\r\npassword=1234test\r\n\r\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "1234test" {
+		t.Fatalf("passphrase = %q, want 1234test (CR leaked in)", got)
+	}
+	if got, _ := parseCredential("password=\r\n"); got != "" {
+		t.Fatalf("empty password with CR accepted: %q", got)
+	}
+}

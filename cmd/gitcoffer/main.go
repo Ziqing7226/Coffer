@@ -310,6 +310,7 @@ func rekeyCmd(args []string) error {
 		return err
 	}
 	fmt.Printf("Passphrase replaced for slot %d — vault.meta rewritten, object data untouched\n", s.OpenedSlotID())
+	fmt.Println("If a credential helper cached the old passphrase, clear it before the next push (see the user guide's rekey note)")
 	return nil
 }
 

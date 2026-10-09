@@ -72,6 +72,45 @@ Everything — every branch, tag, and commit — is reconstructed from the
 vault alone. A git repository is ~40 MB of history? The vault is a
 complete backup, not a mirror of your working files.
 
+### Multiple projects: one vault each
+
+A vault is one git repository, exactly like one URL on a public host is
+one repository. Two projects pushing `main` into the same vault share
+that ref — the second push moves or (with `--force`) overwrites the
+first, because that is what pushing two `main`s to one repository
+means; git refuses non-fast-forward updates without `--force`, so the
+protection is the same as on any remote. Keep one project per vault;
+if you deliberately share a vault, give each project its own branch
+name (`repo1-main`, `repo2-main`) — everything else (fsck, gc, keys)
+treats the vault as a whole.
+
+### Passphrases on Windows
+
+Interactive use needs nothing special: git prompts in the terminal, and
+VSCode shows its native input box. For scripted use, prefer git's
+credential system over GIT_ASKPASS — askpass scripts are awkward in
+cmd/batch (a `.bat` `echo` ends lines with CRLF, and any layer that
+passes the carriage return into the passphrase breaks authentication;
+GitCoffer trims it defensively, but not every tool in the chain does):
+
+```console
+$ git config credential.helper store        # or: manager (Credential Manager)
+$ printf "protocol=coffer\nhost=coffer\npath=<vault id>\nusername=coffer\npassword=<passphrase>\n\n" | git credential approve
+```
+
+(In PowerShell, pipe a double-quoted string with `` `n `` line breaks
+instead of printf.)
+
+After a successful push the passphrase is approved to git, so a helper
+like Windows Credential Manager may cache it. That is the feature
+working — but after `gitcoffer rekey` you must evict the cached value
+before the next push, or the old passphrase keeps answering (the
+authentication-failure error names this fix):
+
+```console
+$ printf "protocol=coffer\nhost=coffer\npath=<vault id>\nusername=coffer\n\n" | git credential reject
+```
+
 ### Nicer remote URLs
 
 ```console
