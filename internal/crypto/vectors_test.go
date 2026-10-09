@@ -102,10 +102,16 @@ func TestFormatVectors(t *testing.T) {
 	if v.VaultID != vecVaultID || v.Passphrase != vecPassphrase || v.DEK != vecDEKHex {
 		t.Fatal("vector file inputs drifted from the pinned constants")
 	}
+	if v.Argon2.M != 65536 || v.Argon2.T != 3 || v.Argon2.P != 4 || v.Argon2.Salt != vecSaltB64 {
+		t.Fatalf("vector file argon2 block drifted from the pinned parameters: %+v", v.Argon2)
+	}
+	salt, _ := base64.StdEncoding.DecodeString(v.Argon2.Salt)
+	params := Argon2Params{Algo: KDFAlgo, M: uint32(v.Argon2.M), T: uint32(v.Argon2.T), P: uint32(v.Argon2.P), Salt: salt}
 
-	// Key-slot envelope: exact bytes plus a round-trip open.
+	// Key-slot envelope: exact bytes plus a round-trip open, deriving
+	// under the parameters as published in the file.
 	nonce, _ := base64.StdEncoding.DecodeString(v.Slot.Nonce)
-	slot, err := sealSlot(v.Slot.SlotID, v.Passphrase, vectorDEK(t), v.VaultID, vecParams(), nonce)
+	slot, err := sealSlot(v.Slot.SlotID, v.Passphrase, vectorDEK(t), v.VaultID, params, nonce)
 	if err != nil {
 		t.Fatal(err)
 	}

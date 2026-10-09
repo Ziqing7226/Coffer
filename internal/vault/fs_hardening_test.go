@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestRejectsPlantedMetaTmpSymlink(t *testing.T) {
+func TestBypassesPlantedMetaTmpSymlink(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("O_NOFOLLOW is Unix-only; symlink creation needs privileges on Windows")
 	}
@@ -24,20 +24,23 @@ func TestRejectsPlantedMetaTmpSymlink(t *testing.T) {
 	if err := os.WriteFile(target, []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// The meta rewrite uses an unpredictable temp name (an unpredictable
+	// name plus O_NOFOLLOW), so a symlink planted at the old fixed name
+	// must simply be bypassed: the rekey succeeds and the target is
+	// untouched.
 	if err := os.Symlink(target, filepath.Join(dir, metaName+".tmp")); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := s.Rekey("new-pass"); err == nil {
-		t.Fatal("rekey wrote through a planted vault.meta.tmp symlink")
+	if err := s.Rekey("new-pass"); err != nil {
+		t.Fatalf("rekey refused by a planted vault.meta.tmp symlink: %v", err)
 	}
 	data, err := os.ReadFile(target)
 	if err != nil || string(data) != "original" {
 		t.Fatalf("symlink target was modified: %q (%v)", data, err)
 	}
-	// The vault itself is untouched and still opens with the old passphrase.
-	if _, err := Open(dir, "pass"); err != nil {
-		t.Fatalf("vault damaged by the refused write: %v", err)
+	if _, err := Open(dir, "new-pass"); err != nil {
+		t.Fatalf("rekey through the bypass did not land: %v", err)
 	}
 }
 

@@ -24,6 +24,7 @@ func CleanGitEnv() []string {
 		"GIT_DIR=", "GIT_WORK_TREE=", "GIT_INDEX_FILE=",
 		"GIT_OBJECT_DIRECTORY=", "GIT_ALTERNATE_OBJECT_DIRECTORIES=",
 		"GIT_CONFIG=", "GIT_CONFIG_PARAMETERS=", "GIT_CONFIG_COUNT=",
+		"GIT_COMMON_DIR=", "GIT_PREFIX=",
 	}
 	var env []string
 	for _, e := range os.Environ() {
@@ -212,4 +213,30 @@ func ResolveInCaller(rev string) (string, error) {
 // ExistsInCaller reports whether an object exists in the caller's repo.
 func ExistsInCaller(oid string) bool {
 	return exec.Command("git", "cat-file", "-e", oid+"^{object}").Run() == nil
+}
+
+// CallerObjectFormat returns the object format of the repository invoking
+// the helper ("sha1" or "sha256").
+func CallerObjectFormat() (string, error) {
+	out, err := exec.Command("git", "rev-parse", "--show-object-format").Output()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse --show-object-format: %v", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// CallerIsShallow reports whether the repository invoking the helper is a
+// depth-limited (shallow) clone, whose history is truncated.
+func CallerIsShallow() (bool, error) {
+	out, err := exec.Command("git", "rev-parse", "--is-shallow-repository").Output()
+	if err != nil {
+		return false, fmt.Errorf("git rev-parse --is-shallow-repository: %v", err)
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	}
+	return false, fmt.Errorf("unexpected --is-shallow-repository output %q", string(out))
 }

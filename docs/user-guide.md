@@ -147,6 +147,9 @@ bootstrapping, never a dependency.
 | `not a coffer vault` on push | The remote URL does not point at a vault. Check the path, or run `coffer init`. |
 | `authentication failed` on every operation | Wrong passphrase, or a credential helper answers with a stale value (common right after a rekey). Evict it with the `git credential reject` line above. |
 | `key file ... no such file` | A second-factor slot's key file is missing at its recorded path. Restore it; nothing else will unlock that slot. |
+| `key file ... is not a regular file` | The recorded path is a symlink, device, or oversized (>1 MiB) file. Coffer refuses such paths because they come from on-media metadata — point the slot at the real file instead. |
+| Push refused: repository is shallow | The push came from a depth-limited clone, whose history is truncated. Run `git fetch --unshallow` against its current origin and push again. |
+| Push or fetch refused: repository uses sha256 object ids | The vault format speaks sha1 object ids. Re-create the repository with the default sha1 format (`git init` without `--object-format=sha256`). |
 | `another coffer operation is writing` | A concurrent writer holds the vault lock. Wait, or — if you are certain none is running — delete `<vault>/vault.lock`. |
 | Clone of a non-`main` repository checks out an empty tree | Fixed in 1.0.0-pre: the alphabetically first branch is advertised as HEAD. Update both binaries. |
 

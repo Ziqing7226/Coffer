@@ -19,3 +19,13 @@ func createNoFollow(path string) (*os.File, error) {
 	}
 	return os.NewFile(uintptr(fd), path), nil
 }
+
+// openNoFollowReadOnly opens a file for reading without following a final
+// symlink component, and without blocking on FIFOs or devices.
+func openNoFollowReadOnly(path string) (*os.File, error) {
+	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, &os.PathError{Op: "open", Path: path, Err: err}
+	}
+	return os.NewFile(uintptr(fd), path), nil
+}

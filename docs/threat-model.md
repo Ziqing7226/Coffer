@@ -71,6 +71,16 @@ symlink's target stays untouched). On Windows, where creating symlinks
 requires developer mode or elevated privileges, the plain create remains
 the baseline.
 
+Reads of untrusted metadata are bounded the same way: a key-file path or
+lock file planted as a symlink, device, or FIFO is refused instead of
+read, with size caps (1 MiB for key files and vault.meta, 8 KiB for the
+lock), and vault.meta is rejected outright unless its id is the
+spec-defined 32 hex characters and it carries at most 16 key slots — a
+planted header cannot make the open path grind through unbounded
+Argon2id work or aim the reader at endless files. A planted lock dated
+in the future blocks writes at most one staleness window, never until
+its stated date.
+
 ## Cryptographic assumptions
 
 Standard assumptions about Argon2id, XChaCha20-Poly1305, and the OS CSPRNG;

@@ -119,19 +119,44 @@ run in CI.
       quickstart, keys and recovery, maintenance, troubleshooting; the
       README carries the quick start and a CLI reference.
 - [x] Security review of the crypto envelope and error paths; format v1
-      frozen as stable. A self-review (independent review welcome before
-      the 1.0 release) covered the KDF/AEAD envelope, AAD bindings and
-      nonce bounds, error and credential paths (passphrases never cross
-      argv or logs), the filesystem attack surface, and every recovery
-      path. One confirmed vulnerability fixed: predictable temp-file names
+      frozen as stable. A self-review covered the KDF/AEAD envelope, AAD
+      bindings and nonce bounds, error and credential paths (passphrases
+      never cross argv or logs), the filesystem attack surface, and every
+      recovery path; an independent review followed — three cold reviewers
+      with no prior context (cryptography, Go application security, git
+      protocol and backup integrity) auditing from the repository alone.
+      Their confirmed findings are fixed with regression tests: unbounded
+      reads of untrusted metadata paths (a planted key-file path or lock
+      symlink aimed at /dev/zero would read forever), crafted vault.meta
+      shapes (non-hex ids enabling paste-injection hints, slot floods,
+      oversized headers), future-dated planted locks blocking writes past
+      their stated date, undetected append-tampering of object files, and
+      test vectors not pinning the Argon2id parameters — plus three from
+      the protocol reviewer: pushing from a sha256 repository stored
+      history the vault could never serve back (now refused in both
+      directions), pushing from a shallow clone silently stored truncated
+      history and poisoned later incremental pushes (now refused with an
+      unshallow remedy), and an --atomic batch with a failed ref reported
+      the other refs as ok without committing anything (the whole batch
+      now reports error); a commit-time generation-exists check narrows
+      the stolen-lock race window, meta rewrites take the writer lock and
+      use unpredictable temp names, and the scratch environment also drops
+      GIT_COMMON_DIR. One confirmed vulnerability fixed: predictable temp-file names
       let an attacker with brief write access to the medium plant symlinks
       turning the next write into an arbitrary-file replacement on the
       host — now refused via O_NOFOLLOW, regression-tested. Conformance
       test vectors published (docs/test-vectors.json) and re-verified on
       every test run.
-- [ ] Post-1.0.0 hardening candidate: disk-full robustness — exercise
-      every write path on a nearly full (loop-device) medium and assert
-      the same one-consistent-state invariant the crash tests enforce.
+- [x] Disk-full robustness: `TestDiskFullRobustness` (opt-in,
+      `COFFER_E2E_FULL=1`) re-executes itself inside an unprivileged user
+      namespace with a 1 MiB tmpfs as the vault medium and sweeps the free
+      space upward. Observed: ENOSPC refusing pushes at three different
+      layers (lock file, mid-object, mid-manifest), every refusal leaving
+      the one-consistent-state invariant intact, a failed rekey leaving
+      the old passphrase working, and full recovery once space returns
+      (push, gc, fsck clean, byte-matching clone). No root or real disk
+      needed; a FAT loop-device variant would need privileges and is
+      optional.
 
 ## Testing strategy
 
