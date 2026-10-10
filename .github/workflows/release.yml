@@ -52,7 +52,7 @@ jobs:
           done
           ( cd dist && sha256sum -- *.zip *.tar.gz > checksums.txt )
           ls -la dist
-      - name: Install signing and SBOM tools
+      - name: Install cosign
         shell: bash
         run: |
           set -euo pipefail
@@ -60,11 +60,6 @@ jobs:
             -o /usr/local/bin/cosign
           chmod +x /usr/local/bin/cosign
           cosign version
-          curl --proto '=https' --tlsv1.2 -sSfL "https://github.com/anchore/syft/releases/download/v1.18.0/syft_1.18.0_linux_amd64.tar.gz" \
-            -o /tmp/syft.tgz
-          tar -xzf /tmp/syft.tgz -C /tmp syft
-          mv /tmp/syft /usr/local/bin/syft
-          syft version
       - name: Sign the checksums keylessly (Sigstore OIDC)
         shell: bash
         run: |
@@ -74,20 +69,21 @@ jobs:
             --output-signature checksums.txt.sig \
             --output-certificate checksums.txt.pem \
             checksums.txt
-      - name: Generate an SBOM of the linux-amd64 archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd dist
-          syft scan "dir:gitcoffer-${GITHUB_REF_NAME#v}-linux-amd64" \
-            -o spdx-json=gitcoffer-${GITHUB_REF_NAME#v}-sbom.spdx.json
-          rm -rf gitcoffer-${GITHUB_REF_NAME#v}-linux-amd64
+      - name: Generate an SBOM of the linux-amd64 binaries
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          path: dist/gitcoffer-${{ github.ref_name }}-linux-amd64
+          artifact-name: gitcoffer-${{ github.ref_name }}-sbom.spdx.json
       - name: Attest build provenance for every archive
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
+      - name: Move the SBOM next to the archives
+        shell: bash
+        run: mv dist/gitcoffer-${GITHUB_REF_NAME}-sbom.spdx.json dist/ 2>/dev/null || true
       - name: Publish the GitHub release
         shell: bash
         env:
@@ -99,8 +95,9 @@ jobs:
             *-pre*|*-rc*|*-beta*|*-alpha*) PRE="--prerelease" ;;
             *) PRE="" ;;
           esac
-          VERSION="${TAG#v}"
-          gh release create "$TAG" dist/gitcoffer-* dist/checksums.txt dist/checksums.txt.sig dist/checksums.txt.pem "dist/gitcoffer-${VERSION}-sbom.spdx.json" \
+          gh release create "$TAG" \
+            dist/*.tar.gz dist/*.zip dist/checksums.txt \
+            dist/checksums.txt.sig dist/checksums.txt.pem dist/*.spdx.json \
             $PRE \
             --title "GitCoffer $TAG" \
             --notes "Binaries for Linux, Windows, and macOS (amd64 and arm64). Put \`gitcoffer\` and \`git-remote-coffer\` on PATH; see the [user guide](https://github.com/Ziqing7226/GitCoffer/blob/main/docs/user-guide.md). Integrity: verify archives against \`checksums.txt\` (sha256); the checksums are signed keylessly — verify with \`cosign verify-blob --certificate checksums.txt.pem --signature checksums.txt.sig --certificate-identity-regexp ^https://github.com/Ziqing7226/ --certificate-oidc-issuer https://token.actions.githubusercontent.com checksums.txt\`; an SBOM (spdx-json) and GitHub build attestations (\`gh attestation verify\`) are attached."
