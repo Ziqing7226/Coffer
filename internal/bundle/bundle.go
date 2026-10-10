@@ -24,6 +24,12 @@ func Export(vaultDir, passphrase, outFile string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// The exit path must not hand the user an unverified older state
+	// when the newest manifest generation is damaged.
+	if f := s.FallbackFromGeneration(); f > 0 {
+		return 0, fmt.Errorf(
+			"the newest manifest generation %d is unreadable and an older state is being served — run gitcoffer fsck before exporting", f)
+	}
 	m := s.Manifest()
 
 	repo, cleanup, err := packproc.TempBareRepo()

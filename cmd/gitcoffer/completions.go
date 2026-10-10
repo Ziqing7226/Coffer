@@ -14,7 +14,7 @@ import (
 const bashCompletion = `# bash completion for gitcoffer
 _gitcoffer() {
 	local commands="init status rekey key gc fsck doctor export-bundle version completion"
-	local gc_opts="--prune" key_opts="--keyfile" ver_opts="--json" global_opts="-h --help --json"
+	local gc_opts="--prune" key_opts="--keyfile" ver_opts="--json" global_opts="-h --help"
 	if [[ $COMP_CWORD -eq 1 ]]; then
 		COMPREPLY=( $(compgen -W "$commands" -- "$2") )
 		return
@@ -54,7 +54,7 @@ _gitcoffer() {
 			_describe -t commands 'gitcoffer command' commands
 			;;
 		args)
-			case $words[1] in
+			case $words[2] in
 				gc) _values 'option' --prune ;;
 				key) [[ $CURRENT -eq 3 ]] && _values 'subcommand' add remove list || _files ;;
 				version) _values 'option' --json ;;
@@ -84,7 +84,7 @@ complete -c gitcoffer -n '__fish_seen_subcommand_from version' -l json -d 'print
 const powershellCompletion = `# powershell completion for gitcoffer
 Register-ArgumentCompleter -CommandName gitcoffer -ScriptBlock {
 	param($wordToComplete, $commandAst, $cursorPosition)
-	$commands = 'init','status','rekey','key','gc','fsck','doctor','export-bundle','version'
+	$commands = 'init','status','rekey','key','gc','fsck','doctor','export-bundle','version','completion'
 	if ($commandAst.CommandExtent.EndColumnPosition -le ($wordToComplete.Length + 6)) {
 		$commands | Where-Object { $_ -like "$wordToComplete*" } |
 			ForEach-Object { [System.Management.Automation.CompletionResult]::new($_) }

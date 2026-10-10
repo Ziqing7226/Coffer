@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Ziqing7226/GitCoffer/internal/crypto"
 )
@@ -35,13 +36,25 @@ func slotSecret(dir string, slot crypto.Slot, passphrase string) (string, error)
 		// read forever) and bound the size.
 		data, err := readLimited(path, 1<<20)
 		if err != nil {
-			return "", fmt.Errorf("key file for slot %d: %v", slot.ID, err)
+			return "", fmt.Errorf("key file for slot %d: %v", slot.ID, sanitizePath(err.Error()))
 		}
 		return passphrase + string(data), nil
 	default:
 		// Unknown input type: a future format this build cannot use.
 		return "", fmt.Errorf("slot %d: unsupported input %q", slot.ID, slot.Input)
 	}
+}
+
+// sanitizePath strips control characters (including terminal escape
+// sequences) from a path that originated in vault.meta before it is
+// printed or embedded in an error hint.
+func sanitizePath(p string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, p)
 }
 
 // refreshMeta re-reads vault.meta into the store. Meta operations call
@@ -88,6 +101,9 @@ func (s *Store) AddSlot(newPass, keyfile string) (int, error) {
 	defer release()
 	if err := s.refreshMeta(); err != nil {
 		return 0, err
+	}
+	if len(s.meta.Slots) >= maxKeySlots {
+		return 0, fmt.Errorf("the vault already has the maximum of %d key slots", maxKeySlots)
 	}
 	id := 0
 	for _, sl := range s.meta.Slots {

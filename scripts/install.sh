@@ -90,5 +90,6 @@ chmod +x "$BIN_DIR/gitcoffer" "$BIN_DIR/git-remote-coffer"
 say "Installed: $($BIN_DIR/gitcoffer version)"
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
-    *) say "Note: $BIN_DIR is not on your PATH — add it to your shell profile:" ;;
+    *) say "Note: $BIN_DIR is not on your PATH — add it to your shell profile:"
+       say "  export PATH=\"$BIN_DIR:\$PATH\"" ;;
 esac

@@ -201,11 +201,13 @@ FAT32 file-size caps) are listed in
 - `gitcoffer gc` reports reclaimable space from interrupted pushes
   (orphaned object files), leftover temp files, and old manifest
   generations; `--prune` performs the deletion. It refuses to delete
-  anything if any manifest generation fails to decrypt. One honest
-  caveat: the vault is a remote, not an immutable archive — once you
-  delete a ref and run `gitcoffer gc --prune`, objects only that ref
-  referenced are gone from the vault (they live on wherever else you
-  pushed them).
+  anything if any manifest generation fails to decrypt. Running gc
+  without flags reports only; `--prune` deletes. Two honest caveats:
+  the vault is a remote, not an immutable archive — and today gc
+  reclaims only crash debris: objects committed under a ref you later
+  deleted stay on the medium (encrypted, unreferenced) until a future
+  repack feature reclaims them. Treat deleted-but-once-pushed history
+  as still on the disk.
 - Both commands serialize with writers through the vault lock; concurrent
   pushes queue safely rather than corrupting.
 

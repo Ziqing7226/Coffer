@@ -6,6 +6,7 @@ package main
 // warnings do not.
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -37,7 +38,7 @@ func (d *diag) fail(format string, args ...any) {
 func doctorCmd(args []string) error {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: coffer doctor <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer doctor <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -69,8 +70,8 @@ func doctorCmd(args []string) error {
 	// Vault structure: no passphrase needed for these.
 	meta, err := vault.ReadMeta(dir)
 	switch {
-	case os.IsNotExist(err):
-		d.fail("%s is not a vault directory (vault.meta missing)", dir)
+	case errors.Is(err, vault.ErrNotVault):
+		d.fail("%v", err)
 	case err != nil:
 		d.fail("vault.meta unreadable: %v", err)
 	default:
@@ -79,10 +80,11 @@ func doctorCmd(args []string) error {
 			if sl.Input != "passphrase+keyfile" || sl.Keyfile == "" {
 				continue
 			}
-			path := sl.Keyfile
+			path := sanitizePath(sl.Keyfile)
 			if !filepath.IsAbs(path) {
 				path = filepath.Join(dir, path)
 			}
+			path = sanitizePath(path)
 			info, serr := os.Lstat(path)
 			switch {
 			case serr != nil:
@@ -145,7 +147,7 @@ func doctorCmd(args []string) error {
 			}
 		}
 		if tmps > 0 {
-			d.warn("%d temp leftover(s) — coffer gc removes them", tmps)
+			d.warn("%d temp leftover(s) — gitcoffer gc removes them", tmps)
 		}
 	}
 

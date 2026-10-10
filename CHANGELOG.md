@@ -28,8 +28,6 @@
   area on Windows; the remaining field-report items were verified fixed
   in rc.2 (the LFS warning lives in the git-remote-coffer binary and
   fires before the pre-push hook; gitcoffer status warns on fallback).
-- doctor's temp-file scan covers the vault root (interrupted manifest
-  writes), matching what gc sweeps — found in cross-platform field
   testing.
 - Server-side non-fast-forward protection: a vault branch only moves to
   a descendant of its current tip unless the push is forced — unrelated

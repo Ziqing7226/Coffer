@@ -3,12 +3,16 @@
 package vault
 
 import (
+	"errors"
 	"os"
 	"syscall"
 )
 
 // pidAlive reports whether pid names a live process (Unix signal 0
-// probe).
+// probe). Three outcomes: nil — alive; os.ErrProcessDone (a reaped
+// child) or ESRCH — gone; anything else (e.g. EPERM for another user's
+// live process) — assume alive, because stealing a running operation's
+// lock would be worse than waiting out the staleness window.
 func pidAlive(pid int) bool {
 	if pid <= 0 {
 		return false
@@ -17,5 +21,13 @@ func pidAlive(pid int) bool {
 	if err != nil {
 		return false
 	}
-	return p.Signal(syscall.Signal(0)) == nil
+	err = p.Signal(syscall.Signal(0))
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, os.ErrProcessDone), errors.Is(err, syscall.ESRCH):
+		return false
+	default:
+		return true
+	}
 }

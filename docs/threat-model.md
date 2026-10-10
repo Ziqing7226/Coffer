@@ -78,8 +78,9 @@ lock), and vault.meta is rejected outright unless its id is the
 spec-defined 32 hex characters and it carries at most 16 key slots — a
 planted header cannot make the open path grind through unbounded
 Argon2id work or aim the reader at endless files. A planted lock dated
-in the future blocks writes at most one staleness window, never until
-its stated date.
+in the future blocks writes for at most about one staleness window
+(an mtime within the skew bound can add up to the skew on top), never
+until its stated date.
 
 ## What Coffer is not
 
@@ -95,9 +96,10 @@ One page, plainly:
 - **Not anti-forensics.** No deniability, no hidden volumes.
 - **Not a forgotten-passphrase recovery tool.** There is no recovery, by
   design — a key file is a second factor, never a rescue.
-- **Not an immutable archive.** Deleting a ref and running `gc` removes
-  objects nothing references anymore; the vault mirrors the repository,
-  it does not preserve every historical state of it.
+- **Not an immutable archive — and not a deletion tool.** Deleting a
+  ref does not reclaim the underlying objects today: `gc` reclaims only
+  crash debris, so deleted history stays on the medium, encrypted and
+  unreferenced, until a future repack feature lands.
 
 ## Cryptographic assumptions
 

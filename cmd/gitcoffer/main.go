@@ -25,6 +25,17 @@ import (
 // what it was built from instead of a generic placeholder.
 var version = ""
 
+// sanitizePath strips control characters (including terminal escape
+// sequences) from a path that originated in vault.meta before printing.
+func sanitizePath(p string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, p)
+}
+
 // versionInfo is the structured form of `gitcoffer version --json`.
 type versionInfo struct {
 	Version string `json:"version"`
@@ -463,7 +474,7 @@ func keyListCmd(args []string) error {
 		keyfile := ""
 		if sl.Input == "passphrase+keyfile" {
 			input = "passphrase + key file"
-			keyfile = "  key file: " + sl.Keyfile
+			keyfile = "  key file: " + sanitizePath(sl.Keyfile)
 		}
 		fmt.Printf("  slot %d: input %s, kdf %s (m=%d t=%d p=%d)%s\n",
 			sl.ID, input, sl.KDF.Algo, sl.KDF.M, sl.KDF.T, sl.KDF.P, keyfile)

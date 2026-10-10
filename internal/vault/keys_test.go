@@ -3,6 +3,7 @@ package vault
 // Phase 3 coverage: key-slot rotation, second-factor key files, gc, fsck.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -179,21 +180,42 @@ func TestMetaOpsUseFreshState(t *testing.T) {
 		t.Fatalf("the added slot does not open: %v", err)
 	}
 
-	// Rotation of a slot that a concurrent operation removed fails
-	// cleanly instead of resurrecting it.
+	// Rotate the slot that s2 opened (slot 0) — lands on fresh state.
 	if err := s2.Rekey("pass-d"); err != nil {
 		t.Fatal(err)
+	}
+	if _, err := Open(dir, "pass-d"); err != nil {
+		t.Fatal(err)
+	}
+	// s1 removes the slot s1 itself opened (slot 0, now pass-d);
+	// s1's rekey then targets a slot that no longer exists and must
+	// fail cleanly — pinning the not-found refusal branch.
+	if err := s1.RemoveSlot(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.Rekey("pass-e"); err == nil ||
+		!strings.Contains(err.Error(), "no longer exists") {
+		t.Fatalf("rekey of a removed slot not refused: %v", err)
 	}
 	if _, err := Open(dir, "pass-c"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s1.RemoveSlot(1); err != nil {
-		t.Fatal(err)
+}
+
+func TestAddSlotRefusesAtTheCap(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := storeWithObject(t, dir, "pass-a")
+	for i := 1; i < maxKeySlots; i++ {
+		if _, err := s.AddSlot(fmt.Sprintf("pass-%d", i), ""); err != nil {
+			t.Fatalf("add %d: %v", i, err)
+		}
 	}
-	if err := s1.Rekey("pass-e"); err != nil {
-		t.Fatalf("rekey of the opened slot refused: %v", err)
+	if _, err := s.AddSlot("over-the-cap", ""); err == nil ||
+		!strings.Contains(err.Error(), "maximum of 16 key slots") {
+		t.Fatalf("slot cap not enforced: %v", err)
 	}
-	if _, err := Open(dir, "pass-e"); err != nil {
-		t.Fatal(err)
+	// The vault must remain fully readable at the cap.
+	if _, err := Open(dir, "pass-a"); err != nil {
+		t.Fatalf("vault unreadable at the slot cap: %v", err)
 	}
 }

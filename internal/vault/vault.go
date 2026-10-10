@@ -336,16 +336,26 @@ func (s *Store) AcquireLock() (func(), error) {
 }
 
 // Reload re-reads the newest authenticating manifest generation, adopting
-// changes other writers committed since Open.
+// changes other writers committed since Open. Fallback tracking matches
+// Open: a damaged newest generation is surfaced via
+// FallbackFromGeneration instead of silently serving older state.
 func (s *Store) Reload() error {
+	var lastErr error
+	var highestFailed int
 	for _, n := range manifestGenerations(s.dir) {
 		m, hash, err := s.readManifestNum(n)
-		if err == nil {
-			s.manifest, s.manifestNum, s.payloadHash = m, n, hash
-			return nil
+		if err != nil {
+			lastErr = err
+			if highestFailed == 0 {
+				highestFailed = n
+			}
+			continue
 		}
+		s.manifest, s.manifestNum, s.payloadHash = m, n, hash
+		s.fallbackFrom = highestFailed
+		return nil
 	}
-	return fmt.Errorf("%w: no usable manifest generation on reload", ErrCorrupt)
+	return fmt.Errorf("%w: no usable manifest generation on reload (%v)", ErrCorrupt, lastErr)
 }
 
 // WriteObject encrypts plaintext into a new immutable object file and
@@ -452,6 +462,15 @@ func (s *Store) commit(next *Manifest) error {
 	payload, err := json.Marshal(next)
 	if err != nil {
 		return err
+	}
+	// The reader caps manifest files at maxManifestBytes: committing
+	// beyond that would brick the vault (every open would refuse the
+	// newest generation). Fail the push with the honest remedy instead —
+	// a repo this large needs the future repack/rechunk feature.
+	if int64(len(payload))+int64(crypto.NonceSize)+int64(crypto.TagSize) > maxManifestBytes {
+		return fmt.Errorf(
+			"the vault inventory has grown to %d bytes, beyond what this version can commit (manifest limit %d bytes) — the vault is intact and unchanged; do not retry",
+			len(payload), maxManifestBytes)
 	}
 	// Under the writer lock, verify we still hold it: if a long operation
 	// outlived lockStaleAfter and another writer stole the lock, committing

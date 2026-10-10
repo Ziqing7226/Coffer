@@ -55,20 +55,32 @@ func TestLockStolenWhenHolderDeadOnSameHost(t *testing.T) {
 		t.Skip("constructing a provably-dead pid is awkward on Windows; covered by TestPidAliveOnWindows")
 	}
 	dir := t.TempDir()
-	cmd := exec.Command("sleep", "0")
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("sacrificial holder: %v", err)
-	}
-	info := lockInfo{Host: hostname(), PID: cmd.Process.Pid, Started: time.Now().UTC()}
-	if err := writeLockFile(lockPath(dir), info); err != nil {
-		t.Fatal(err)
-	}
+	// Pid reuse on a busy desktop can make a reaped pid probe as alive;
+	// fresh pids are allocated upward, so retry until the probe agrees
+	// the holder is gone (attempt N uses pid P_n with P_{n+1} > P_n).
+	for attempt := 0; attempt < 8; attempt++ {
+		os.Remove(lockPath(dir)) // clear the previous attempt's lock
+		cmd := exec.Command("sleep", "0")
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("sacrificial holder: %v", err)
+		}
+		info := lockInfo{Host: hostname(), PID: cmd.Process.Pid, Started: time.Now().UTC()}
+		if err := writeLockFile(lockPath(dir), info); err != nil {
+			t.Fatal(err)
+		}
 
-	release, _, err := acquireLock(dir)
-	if err != nil {
-		t.Fatalf("lock of dead holder not stolen: %v", err)
+		release, _, err := acquireLock(dir)
+		if err == nil {
+			release()
+			return
+		}
+		if !strings.Contains(err.Error(), "another coffer operation") {
+			t.Fatalf("dead holder not stolen, different error: %v", err)
+		}
+		// The lock stayed: this pid probed alive (reused). A stale lock
+		// left behind is fine — the next attempt writes a fresh one.
 	}
-	release()
+	t.Fatal("dead holder never stolen across 8 attempts")
 }
 
 func TestLockGarbageContentStolenWhenOld(t *testing.T) {

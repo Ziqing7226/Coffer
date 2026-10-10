@@ -40,6 +40,7 @@ type session struct {
 	dryRun   bool
 	atomic   bool
 	progress bool
+	cas      map[string]string // ref -> expected tip, from "option cas"
 	in       *bufio.Reader
 	out      *bufio.Writer
 }
@@ -239,6 +240,22 @@ func (s *session) handleOption(arg string) {
 		default:
 			s.replySingle("error atomic expects true or false")
 		}
+	case "cas":
+		// force-with-lease: git sends "cas <ref>:<expected tip>" per
+		// leased ref. A matching lease means the client verified the
+		// remote tip and sanctions the update — the same deal
+		// git-receive-pack honors. A stale lease never reaches us (git
+		// rejects it client-side against our advertised refs).
+		ref, expect, ok := strings.Cut(value, ":")
+		if !ok || ref == "" || expect == "" {
+			s.replySingle("error cas expects <ref>:<expected-oid>")
+			return
+		}
+		if s.cas == nil {
+			s.cas = make(map[string]string)
+		}
+		s.cas[ref] = expect
+		s.replySingle("ok")
 	case "verbosity", "object-format":
 		// Acknowledged; verbosity is cosmetic and the object-format keyword
 		// is always emitted in list.
@@ -354,7 +371,7 @@ func (s *session) serveFetch(oids []string) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("object %s is not in the vault inventory — the manifest is inconsistent with the request; inspect the vault with `coffer status`", oid)
+			return fmt.Errorf("object %s is not in the vault inventory — the manifest is inconsistent with the request; inspect the vault with `gitcoffer status`", oid)
 		}
 	}
 	if len(m.Packs) == 0 {
@@ -495,6 +512,13 @@ func (s *session) applyPush(specs []string) (err error) {
 		// client's own check does not protect here — a caller without
 		// the vault's objects cannot verify ancestry and may send
 		// anyway, which would silently overwrite the branch.
+		if old, exists := byName[dst]; exists && !forced {
+			// A matching force-with-lease sanctions the overwrite: the
+			// client verified the remote tip equals the leased value.
+			if s.cas[dst] == old.OID {
+				forced = true
+			}
+		}
 		if old, exists := byName[dst]; exists && !forced {
 			if oid == old.OID {
 				// No-op update: falls through as a fast-forward of itself.
