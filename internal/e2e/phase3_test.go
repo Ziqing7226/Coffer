@@ -150,12 +150,12 @@ func TestGCAfterCrashedPush(t *testing.T) {
 		t.Fatalf("fsck did not flag the orphan: %s", out)
 	}
 
-	out, err = runGitcoffer(t, passphrase+"\n", "gc", vaultDir)
+	out, err = runGitcoffer(t, passphrase+"\n", "gc", "--prune", vaultDir)
 	if err != nil {
-		t.Fatalf("gitcoffer gc: %v\n%s", err, out)
+		t.Fatalf("gitcoffer gc --prune: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "removed orphaned object") {
-		t.Fatalf("gc did not remove the orphan: %s", out)
+		t.Fatalf("gc --prune did not remove the orphan: %s", out)
 	}
 
 	// The vault is clean again and still accepts pushes.

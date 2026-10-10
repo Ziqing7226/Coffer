@@ -103,7 +103,7 @@ func TestDoctor(t *testing.T) {
 	}
 }
 
-func TestGCDryRunDeletesNothing(t *testing.T) {
+func TestGCReportOnlyByDefaultPruneDeletes(t *testing.T) {
 	vaultDir := newVault(t)
 	src := newRepo(t, "src")
 	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
@@ -111,23 +111,23 @@ func TestGCDryRunDeletesNothing(t *testing.T) {
 	commit(t, src, "file.txt", "one\ntwo\n", "commit two")
 	gitFail(t, src, []string{"COFFER_CRASH=after-object-rename"}, "push", "origin", "main") // leaves an orphan
 
-	out, err := runGitcoffer(t, passphrase+"\n", "gc", "--dry-run", vaultDir)
+	out, err := runGitcoffer(t, passphrase+"\n", "gc", vaultDir)
 	if err != nil {
-		t.Fatalf("gc --dry-run: %v\n%s", err, out)
+		t.Fatalf("gc report: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "would remove orphaned object") {
-		t.Fatalf("dry-run report missing the orphan: %s", out)
+		t.Fatalf("report missing the orphan: %s", out)
 	}
 	if got := len(openVault(t, vaultDir).Manifest().Packs); got != 1 {
-		t.Fatalf("dry-run changed the vault: %d packs", got)
+		t.Fatalf("report-only gc changed the vault: %d packs", got)
 	}
 
-	out, err = runGitcoffer(t, passphrase+"\n", "gc", vaultDir)
+	out, err = runGitcoffer(t, passphrase+"\n", "gc", "--prune", vaultDir)
 	if err != nil {
-		t.Fatalf("gc: %v\n%s", err, out)
+		t.Fatalf("gc --prune: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "removed orphaned object") {
-		t.Fatalf("gc did not remove the orphan: %s", out)
+		t.Fatalf("gc --prune did not remove the orphan: %s", out)
 	}
 }
 

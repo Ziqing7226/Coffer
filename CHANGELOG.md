@@ -2,6 +2,11 @@
 
 ## Unreleased (toward 1.0.0)
 
+- CLI shape finalized before 1.0.0: `gitcoffer gc` is report-only by
+  default and deletion requires `--prune` (the `--dry-run` flag is
+  gone — the default IS the dry run). `gitcoffer version --json`
+  serves structured consumers.
+
 - Server-side non-fast-forward protection: a vault branch only moves to
   a descendant of its current tip unless the push is forced — unrelated
   or rewritten histories are refused with a remedy instead of silently

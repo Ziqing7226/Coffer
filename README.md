@@ -136,7 +136,7 @@ $ git remote add origin usb://myproject.coffer
 | `gitcoffer status <dir>` | inspect: format, slots, refs, packs |
 | `gitcoffer rekey <dir>` | change the passphrase (data is never re-encrypted) |
 | `gitcoffer key add / remove / list` | manage key slots; optional key-file second factor |
-| `gitcoffer gc [--dry-run] <dir>` | reclaim space from interrupted pushes and old generations |
+| `gitcoffer gc [--prune] <dir>` | report reclaimable space, or reclaim it with `--prune` |
 | `gitcoffer fsck <dir>` | verify every structure of the vault |
 | `gitcoffer doctor <dir>` | check the environment and the vault |
 | `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle — the exit path |

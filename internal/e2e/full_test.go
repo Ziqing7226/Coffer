@@ -189,7 +189,7 @@ func TestDiskFullRobustness(t *testing.T) {
 	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, src, "main") {
 		t.Fatal("recovery push did not land")
 	}
-	if out, err := runGitcoffer(t, passphrase+"\n", "gc", vaultDir); err != nil {
+	if out, err := runGitcoffer(t, passphrase+"\n", "gc", "--prune", vaultDir); err != nil {
 		t.Fatalf("gc after recovery: %v\n%s", err, out)
 	}
 	findings, err := vault.Fsck(vaultDir, passphrase)

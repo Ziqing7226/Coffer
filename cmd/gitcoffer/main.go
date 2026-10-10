@@ -3,6 +3,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -23,6 +24,11 @@ import (
 // (revision and commit time), so a self-built binary identifies exactly
 // what it was built from instead of a generic placeholder.
 var version = ""
+
+// versionInfo is the structured form of `gitcoffer version --json`.
+type versionInfo struct {
+	Version string `json:"version"`
+}
 
 // versionString renders the version line: the stamped release version,
 // or the embedded VCS revision for source builds.
@@ -93,7 +99,7 @@ func main() {
 	case "rekey":
 		err = rekeyCmd(os.Args[2:])
 	case "version":
-		fmt.Printf("gitcoffer %s\n", versionString())
+		err = versionCmd(os.Args[2:])
 	case "key":
 		if len(os.Args) < 3 {
 			usage()
@@ -132,6 +138,31 @@ func main() {
 	}
 }
 
+// versionCmd prints the version line, optionally as a single JSON
+// object for scripts and IDE integrations.
+func versionCmd(args []string) error {
+	fs := flag.NewFlagSet("version", flag.ContinueOnError)
+	asJSON := fs.Bool("json", false, "print the version as a JSON object")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	v := versionInfo{Version: versionString()}
+	if !*asJSON {
+		fmt.Printf("gitcoffer %s\n", v.Version)
+		return nil
+	}
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	fmt.Println(string(data))
+	return nil
+}
+
 func usage() {
 	fmt.Fprint(os.Stderr, `usage:
   gitcoffer init <vault-directory>            create a new encrypted vault
@@ -141,7 +172,7 @@ func usage() {
                                             [-keyfile <path>]
   gitcoffer key remove <vault-directory> <id> remove a key slot (never the last one)
   gitcoffer key list <vault-directory>        list key slots (no passphrase needed)
-  gitcoffer gc [--dry-run] <vault-directory>  remove orphaned objects, temp files, old generations
+  gitcoffer gc [--prune] <vault-directory>   remove orphaned objects, temp files, old generations (default: report only)
   gitcoffer fsck <vault-directory>            verify every structure of the vault
   gitcoffer doctor <vault-directory>          check the environment and the vault, and report
   gitcoffer export-bundle <vault-dir> <file>  export the vault as a plain git bundle
@@ -438,9 +469,9 @@ func keyListCmd(args []string) error {
 
 func gcCmd(args []string) error {
 	fs := flag.NewFlagSet("gc", flag.ContinueOnError)
-	dryRun := fs.Bool("dry-run", false, "report what would be removed without deleting anything")
+	prune := fs.Bool("prune", false, "actually delete what gc finds (without it, gc only reports)")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: gitcoffer gc [--dry-run] <vault-directory>")
+		fmt.Fprintln(os.Stderr, "usage: gitcoffer gc [--prune] <vault-directory>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -452,7 +483,7 @@ func gcCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	if *dryRun {
+	if !*prune {
 		rep, err := vault.GCDryRun(dir, pass)
 		if err != nil {
 			return err
@@ -466,7 +497,7 @@ func gcCmd(args []string) error {
 		for _, n := range rep.PrunedGenerations {
 			fmt.Printf("would prune manifest generation %d\n", n)
 		}
-		fmt.Printf("gc dry-run: would remove %d object(s), %d temp file(s), %d generation(s), freeing %s\n",
+		fmt.Printf("gc report: would remove %d object(s), %d temp file(s), %d generation(s), freeing %s (pass --prune to delete)\n",
 			len(rep.RemovedObjects), len(rep.RemovedTmp), len(rep.PrunedGenerations), humanBytes(rep.BytesFreed))
 		return nil
 	}
