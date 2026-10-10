@@ -192,13 +192,14 @@ FAT32 file-size caps) are listed in
 - `gitcoffer fsck` verifies every AEAD seal, the manifest chain, and every
   object's checksum; run it when a medium had a rough day. It reports the
   first divergence per structure and never attempts recovery.
-- `gitcoffer gc` reclaims space from interrupted pushes (orphaned object
-  files), leftover temp files, and old manifest generations. It refuses to
-  delete anything if any manifest generation fails to decrypt;
-  `--dry-run` reports without deleting. One honest caveat: the vault is a
-  remote, not an immutable archive — once you delete a ref and run gc,
-  objects only that ref referenced are gone from the vault (they live on
-  wherever else you pushed them).
+- `gitcoffer gc` reports reclaimable space from interrupted pushes
+  (orphaned object files), leftover temp files, and old manifest
+  generations; `--prune` performs the deletion. It refuses to delete
+  anything if any manifest generation fails to decrypt. One honest
+  caveat: the vault is a remote, not an immutable archive — once you
+  delete a ref and run `gitcoffer gc --prune`, objects only that ref
+  referenced are gone from the vault (they live on wherever else you
+  pushed them).
 - Both commands serialize with writers through the vault lock; concurrent
   pushes queue safely rather than corrupting.
 
