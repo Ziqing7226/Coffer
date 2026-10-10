@@ -189,6 +189,8 @@ func TestNonFastForwardProtection(t *testing.T) {
 	// And the legitimate relay: a clone of the vault pushes a descendant.
 	clone := filepath.Join(t.TempDir(), "clone")
 	git(t, t.TempDir(), nil, "clone", "-q", vaultURL(vaultDir), clone)
+	git(t, clone, nil, "config", "user.name", "R")
+	git(t, clone, nil, "config", "user.email", "r@inv.alid")
 	commit(t, clone, "f", "relay\n", "relay commit")
 	git(t, clone, nil, "push", "-q", "origin", "main")
 	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, clone, "main") {
