@@ -52,7 +52,7 @@ func TestLockStolenWhenOld(t *testing.T) {
 
 func TestLockStolenWhenHolderDeadOnSameHost(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("pid liveness is not probed on Windows; staleness is time-based there")
+		t.Skip("constructing a provably-dead pid is awkward on Windows; covered by TestPidAliveOnWindows")
 	}
 	dir := t.TempDir()
 	cmd := exec.Command("sleep", "0")
@@ -110,4 +110,20 @@ func TestCommitAbortsWhenLockTakenOver(t *testing.T) {
 		t.Fatalf("commit under a stolen lock succeeded: %v", err)
 	}
 	release()
+}
+
+// TestPidAliveOnWindows pins the Windows probe: the current process is
+// alive; a pid from the reserved system range that cannot exist is not.
+// Without the probe, a crashed Windows holder's lock blocked writes for
+// the whole staleness window.
+func TestPidAliveOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("exercises the Windows OpenProcess probe")
+	}
+	if !pidAlive(os.Getpid()) {
+		t.Fatal("the running test process reports dead")
+	}
+	if pidAlive(0) || pidAlive(-1) {
+		t.Fatal("invalid pids report alive")
+	}
 }

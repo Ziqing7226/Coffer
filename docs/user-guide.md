@@ -220,7 +220,7 @@ FAT32 file-size caps) are listed in
 | Push refused: repository is shallow | The push came from a depth-limited clone, whose history is truncated. Run `git fetch --unshallow` against its current origin and push again. |
 | Push or fetch refused: repository uses sha256 object ids | The vault format speaks sha1 object ids. Re-create the repository with the default sha1 format (`git init` without `--object-format=sha256`). |
 | Push refused: non-fast-forward | The vault's branch would be overwritten by unrelated or rewritten history. Fetch and merge first; `--force` overwrites deliberately — the overwritten commits become unrecoverable after `gitcoffer gc --prune`. |
-| `another coffer operation is writing` | A concurrent writer holds the vault lock. Wait, or — if you are certain none is running — delete `<vault>/vault.lock`. |
+| `another coffer operation is writing` | A concurrent writer holds the vault lock. On Windows, a crashed holder's lock is stolen as soon as its pid is detected dead; on any platform, if you are certain none is running you can delete `<vault>/vault.lock` directly. |
 | Clone of a non-`main` repository checks out an empty tree | Fixed in 1.0.0-pre: the alphabetically first branch is advertised as HEAD. Update both binaries. |
 
 ## Security notes

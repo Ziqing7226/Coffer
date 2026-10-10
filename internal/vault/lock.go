@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -57,19 +55,6 @@ func parseLock(data []byte) (lockInfo, bool) {
 	return info, info.Host != "" && info.PID > 0 && !info.Started.IsZero()
 }
 
-// pidAlive reports whether pid names a live process (Unix signal 0 probe;
-// on Windows liveness is not probed and staleness is time-based only).
-func pidAlive(pid int) bool {
-	if pid <= 0 {
-		return false
-	}
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return p.Signal(syscall.Signal(0)) == nil
-}
-
 // stale decides whether a held lock may be stolen: its holder is provably
 // gone (dead pid on this host), or it outlived lockStaleAfter (covers
 // cross-machine holders and platforms without a liveness probe).
@@ -86,7 +71,7 @@ func stale(info lockInfo, mtime time.Time) bool {
 		if now.Sub(info.Started) > lockStaleAfter {
 			return true
 		}
-		return runtime.GOOS != "windows" && info.Host == hostname() && !pidAlive(info.PID)
+		return info.Host == hostname() && !pidAlive(info.PID)
 	}
 	// No trustworthy content timestamp: mtime decides; an mtime itself
 	// dated beyond skew is nonsense content — steal rather than block.

@@ -21,6 +21,13 @@
   slot-occupied error distinguishes damage from concurrency); a planted
   obj symlink no longer redirects object writes into an arbitrary host
   directory.
+- Windows: a crashed holder's vault.lock is now stolen immediately —
+  pid liveness is probed via OpenProcess instead of waiting out the
+  staleness window (the lock message's delete guidance remains as the
+  last resort). Cross-system field testing confirmed every functional
+  area on Windows; the remaining field-report items were verified fixed
+  in rc.2 (the LFS warning lives in the git-remote-coffer binary and
+  fires before the pre-push hook; gitcoffer status warns on fallback).
 - Server-side non-fast-forward protection: a vault branch only moves to
   a descendant of its current tip unless the push is forced — unrelated
   or rewritten histories are refused with a remedy instead of silently
