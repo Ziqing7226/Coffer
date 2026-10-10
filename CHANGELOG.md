@@ -2,6 +2,14 @@
 
 ## Unreleased (toward 1.0.0)
 
+- Server-side non-fast-forward protection: a vault branch only moves to
+  a descendant of its current tip unless the push is forced — unrelated
+  or rewritten histories are refused with a remedy instead of silently
+  overwriting the branch (the overwritten commits would be unrecoverable
+  after gc). The LFS warning now fires before the pre-push hook, and
+  `gitcoffer status` warns when the newest manifest generation is
+  unreadable and an older one is being served.
+
 - Release trust chain: archives are built with the pinned toolchain
   (CGO disabled, trimpath), checksummed, the checksums signed keylessly
   (Sigstore OIDC via cosign — no stored secrets), an SBOM (spdx-json)
