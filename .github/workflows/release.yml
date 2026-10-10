@@ -52,23 +52,31 @@ jobs:
           done
           ( cd dist && sha256sum -- *.zip *.tar.gz > checksums.txt )
           ls -la dist
-      - name: Install cosign
+      - name: Install cosign (pinned v2)
         shell: bash
         run: |
           set -euo pipefail
-          curl --proto '=https' --tlsv1.2 -sSfL https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64 \
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            https://github.com/sigstore/cosign/releases/download/v2.2.3/cosign-linux-amd64 \
             -o /usr/local/bin/cosign
           chmod +x /usr/local/bin/cosign
           cosign version
       - name: Sign the checksums keylessly (Sigstore OIDC)
         shell: bash
         run: |
-          set -euo pipefail
+          set +e
           cd dist
           cosign sign-blob --yes \
             --output-signature checksums.txt.sig \
             --output-certificate checksums.txt.pem \
-            checksums.txt
+            checksums.txt > /tmp/cosign.log 2>&1
+          status=$?
+          cat /tmp/cosign.log
+          set -e
+          if [ "$status" -ne 0 ]; then
+            tail -12 /tmp/cosign.log | sed 's/^/::error::COSIGN: /'
+          fi
+          exit "$status"
       - name: Generate an SBOM of the linux-amd64 binaries
         uses: anchore/sbom-action@v0
         with:
