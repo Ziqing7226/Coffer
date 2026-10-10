@@ -80,6 +80,18 @@ func TestDoctor(t *testing.T) {
 		}
 	}
 
+	// Root-level .tmp leftovers (interrupted manifest writes) must warn
+	// too — doctor's scan covers the same files gc sweeps.
+	os.WriteFile(filepath.Join(vaultDir, "manifest.9.tmp"), []byte("x"), 0o600)
+	out, err = runGitcoffer(t, "", "doctor", vaultDir)
+	if err != nil {
+		t.Fatalf("doctor with a root temp leftover failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "[warn] 1 temp leftover") {
+		t.Fatalf("doctor missed the root temp leftover:\n%s", out)
+	}
+	os.Remove(filepath.Join(vaultDir, "manifest.9.tmp"))
+
 	// A missing key file is a warning, not a failure — but it must appear.
 	keyfile := filepath.Join(t.TempDir(), "coffer.key")
 	if _, err2 := runGitcoffer(t, passphrase+"\nkp-pass\nkp-pass\n", "key", "add", "-keyfile", keyfile, vaultDir); err2 != nil {

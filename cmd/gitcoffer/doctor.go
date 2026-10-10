@@ -134,6 +134,16 @@ func doctorCmd(args []string) error {
 			}
 		}
 		d.ok("object files: %d (%s ciphertext)", objs, humanBytes(bytes))
+		// Root-level temp leftovers (interrupted manifest writes) count
+		// too — the same files gc sweeps.
+		rootEntries, rerr := os.ReadDir(dir)
+		if rerr == nil {
+			for _, e := range rootEntries {
+				if !e.IsDir() && filepath.Ext(e.Name()) == ".tmp" {
+					tmps++
+				}
+			}
+		}
 		if tmps > 0 {
 			d.warn("%d temp leftover(s) — coffer gc removes them", tmps)
 		}
