@@ -10,7 +10,8 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # keyless signing and build attestations
+  id-token: write        # keyless signing and build attestations
+  attestations: write    # the build-provenance attestation API
 
 jobs:
   release:
