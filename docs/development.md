@@ -6,7 +6,8 @@ code follows in the phases below. Phase scope is fixed; dates are not.
 ## Stack
 
 - **Language: Go.** Static single-binary cross-compilation (linux/amd64,
-  linux/arm64, windows/amd64, darwin/amd64, darwin/arm64), mature crypto
+  linux/arm64, windows/amd64, windows/arm64, darwin/amd64,
+  darwin/arm64), mature crypto
   in the standard library and
   `golang.org/x/crypto` (argon2, chacha20poly1305), and straightforward
   subprocess glue for git plumbing.
@@ -21,7 +22,7 @@ code follows in the phases below. Phase scope is fixed; dates are not.
 ## Repository layout (planned)
 
 ```text
-cmd/coffer/             lifecycle CLI (init, status, rekey, gc, fsck)
+cmd/gitcoffer/          lifecycle CLI (init, status, rekey, key, gc, fsck, doctor, export-bundle, version)
 cmd/git-remote-coffer/  the remote helper
 internal/proto/         git remote-helper protocol (stdio framing, capabilities)
 internal/vault/         on-disk format per docs/format-spec.md
@@ -46,8 +47,12 @@ Prove the risky unknowns with throwaway code.
       drives the askpass path on all three CI operating systems, and the
       Phase 2 checklist records the by-hand VSCode pass (native input box,
       wrong passphrase, cancel).
-- [ ] Windows: helper discovery from VSCode's bundled git confirmed;
-      binary stdio confirmed free of CRLF issues.
+- [x] Windows: helper discovery from VSCode's bundled git confirmed;
+      binary stdio confirmed free of CRLF issues — delivered with
+      stronger evidence in the 1.0.0 cycle: cross-system field testing
+      on real Windows hardware covered VSCode publish flows and the
+      CRLF handling end to end (the credential parser also trims a
+      stray carriage return defensively).
 - [x] Validation floor confirmed against a pinned git 2.30 build
       (container) — protocol behavior, not just compilation. Delivered
       late, in the 1.0.0 cycle: the `floor-git-230` CI leg builds

@@ -21,7 +21,7 @@ put both binaries on `PATH`. Verify with:
 
 ```console
 $ gitcoffer version
-gitcoffer v1.0.0
+gitcoffer v1.0.0-rc.3
 $ git-remote-coffer          # run with no arguments, prints its usage note;
                              # normally git invokes it for you
 ```
@@ -38,8 +38,8 @@ repository build reports the commit it was built from.
 **Build from source** with Go ≥ 1.27:
 
 ```console
-$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0
-$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0
+$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0-rc.3
+$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0-rc.3
 ```
 
 Package-manager entries (Homebrew, scoop, winget) ship with the stable
@@ -106,6 +106,9 @@ GitCoffer trims it defensively, but not every tool in the chain does):
 $ git config credential.helper store        # or: manager (Credential Manager)
 $ printf "protocol=coffer\nhost=coffer\npath=<vault id>\nusername=coffer\npassword=<passphrase>\n\n" | git credential approve
 ```
+
+The `<vault id>` is printed by `gitcoffer init` when the vault is
+created, and again in the header of `gitcoffer status`.
 
 (In PowerShell, pipe a double-quoted string with `` `n `` line breaks
 instead of printf.)

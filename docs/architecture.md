@@ -69,7 +69,7 @@ Two alternatives were rejected deliberately:
 | Component | Role |
 |---|---|
 | `git-remote-coffer` | the remote helper; implements the git remote-helper protocol (`list`, `fetch`, `push`) |
-| `gitcoffer` | lifecycle CLI: `init`, `status`, `rekey`, `gc`, `fsck` |
+| `gitcoffer` | lifecycle CLI: `init`, `status`, `rekey`, `key`, `gc`, `fsck`, `doctor`, `export-bundle`, `version` |
 | vault store | the on-disk format, specified normatively in [format-spec.md](format-spec.md) |
 | pack glue | thin wrappers around git plumbing (`pack-objects`, `git index-pack`, `git show-index`) to move and inventory packs without reimplementing pack handling |
 
