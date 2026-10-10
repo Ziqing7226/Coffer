@@ -172,7 +172,8 @@ already shipped:
 - [x] Release trust chain: cosign keyless signing (Sigstore OIDC, no
       stored secrets), SBOM (spdx-json), GitHub build attestations on
       every archive, toolchain pinned via go.mod, CGO disabled and
-      trimpath for reproducible archives.
+      trimpath on (byte-identical rebuilds verified for a fixed
+      toolchain and tree).
 - [ ] Golden vault fixture pinning cross-version readability (created by
       v1.0.0-pre, read forever).
 - [ ] Corruption matrix expansion: truncation, generation rollback,
