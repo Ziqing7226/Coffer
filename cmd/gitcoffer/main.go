@@ -210,7 +210,7 @@ func initCmd(args []string) error {
 	}
 	dir := fs.Arg(0)
 	if _, err := os.Stat(filepath.Join(dir, "vault.meta")); err == nil {
-		return fmt.Errorf("refusing to overwrite existing vault at %s", dir)
+		return fmt.Errorf("refusing to overwrite existing vault at %s — if a previous init was interrupted before finishing, delete the directory and run init again", dir)
 	}
 
 	first, err := promptPassword("Enter passphrase for the new vault")

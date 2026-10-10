@@ -28,12 +28,13 @@ fresh clone 3.4 s, incremental push 3.5 s — see
 | Shallow (depth-limited) clones | Push is **refused** with the `git fetch --unshallow` remedy: a shallow push would store truncated history and poison later incremental pushes. CI checkouts are shallow — unshallow them before backing up. |
 | Git LFS | **Not backed up.** LFS content lives on LFS servers, outside the git object store; the vault holds only pointer files. Pushes from LFS-configured repositories print a warning. Keep LFS objects backed up separately. |
 | Submodules | The gitlink (commit pointer) is stored like any ref content; the submodule's own repository is a separate repository and is **not** included. Back each submodule up on its own. |
-| FAT32 / exFAT media | Fully supported (plain files, no permissions needed), with one boundary: these filesystems cap a single file at ~4 GiB, and one vault object file holds one pack — repositories whose packs exceed that need a filesystem without the cap. `gitcoffer doctor` warns when it detects such media. |
+| FAT32 media | Fully supported (plain files, no permissions needed), with two boundaries: FAT32 caps a single file at 4 GiB, and one vault object file holds one pack — repositories whose packs exceed that need a filesystem without the cap (exFAT has no practical limit). `gitcoffer doctor` warns when it detects FAT media. On Windows specifically, FAT media cannot enforce the crash-ordering directory flushes (NTFS/APFS/ext4 do), so a power loss during a push has a wider window there — re-push from the working repository if a push is interrupted. |
 | Case-insensitive filesystems | Safe: vault file names are lowercase hex digits only. |
 | Non-ASCII and spaced paths | Fully supported in repository content and vault paths. |
 | Bare repositories | Pushing from a bare repository works — the object flow is identical. |
 | `--atomic`, `--force-with-lease`, `--dry-run`, deletions, annotated tags | Supported and covered by the e2e suite. |
 | Non-fast-forward pushes | Enforced server-side: a branch that exists in the vault only moves to a descendant of its current tip unless forced — an unrelated repository cannot silently overwrite it. |
+| Scale boundary | The vault index rewrites wholesale on every push and is capped at 8 MiB (roughly 150–200k stored objects). Beyond that, pushes are refused with an honest message — no silent failure. A future repack feature will lift this. |
 | Refs other than branches and tags | Any fully-qualified ref (e.g. `refs/notes/*`) round-trips. |
 
 ## Recovery scope

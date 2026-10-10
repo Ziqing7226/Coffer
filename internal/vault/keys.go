@@ -165,7 +165,22 @@ func ensureKeyfile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(abs, key, 0o600); err != nil {
+	// O_EXCL: if the file appears between the stat and the create
+	// (restore job, sync tool), use the arrived file instead of
+	// clobbering it with fresh random bytes the slot would then be
+	// sealed to.
+	f, err := os.OpenFile(abs, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		if info, serr := os.Stat(abs); serr == nil && info.Size() >= minKeyfileSize {
+			return abs, nil
+		}
+		return "", err
+	}
+	if _, err := f.Write(key); err != nil {
+		f.Close()
+		return "", err
+	}
+	if err := f.Close(); err != nil {
 		return "", err
 	}
 	return abs, nil

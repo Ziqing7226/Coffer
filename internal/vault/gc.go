@@ -130,7 +130,11 @@ func gc(dir, passphrase string, dryRun bool) (*GCReport, error) {
 	for _, n := range manifestGenerations(dir) {
 		if n < newest-kept+1 {
 			if !dryRun {
-				os.Remove(filepath.Join(dir, fmt.Sprintf("%s%d", manifestPrefix, n)))
+				// Report only what actually left the disk (a locked or
+				// vanished file is still there).
+				if os.Remove(filepath.Join(dir, fmt.Sprintf("%s%d", manifestPrefix, n))) != nil {
+					continue
+				}
 			}
 			rep.PrunedGenerations = append(rep.PrunedGenerations, n)
 		}

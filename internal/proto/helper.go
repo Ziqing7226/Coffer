@@ -157,7 +157,7 @@ func (s *session) openStore() error {
 	// media go unnoticed, so surface it on every operation.
 	if f := st.FallbackFromGeneration(); f > 0 {
 		fmt.Fprintf(os.Stderr,
-			"git-remote-coffer: warning: newest manifest generation %d is unreadable — serving the older generation %d; run gitcoffer fsck\n",
+			"git-remote-coffer: warning: newest manifest generation %d is unreadable — serving the older generation %d; run gitcoffer fsck. Commits reported ok just before the damage may need re-pushing from the repository that made them\n",
 			f, st.ManifestNum())
 	}
 	// The passphrase authenticated: let git's credential helpers remember
@@ -170,16 +170,15 @@ func (s *session) openStore() error {
 	return nil
 }
 
-// refusePushOnFallback keeps pushes off a vault that is serving a
-// fallback manifest generation: the damaged file may occupy the next
-// generation number, so the commit would dead-end with a misleading
-// error — and writing onto an unverified older state hides the damage.
-func (s *session) refusePushOnFallback() error {
+// warnPushOnFallback surfaces a vault that is serving a fallback
+// manifest generation. The push itself proceeds: the commit quarantines
+// a damaged occupant of the next slot, so warning (not refusing) is the
+// recovery path — refusing outright would lock the vault forever.
+func (s *session) warnPushOnFallback() {
 	if f := s.store.FallbackFromGeneration(); f > 0 {
-		return fmt.Errorf(
-			"the newest manifest generation %d is unreadable and an older state is being served — run gitcoffer fsck on the vault; refusing to push onto an unverified state", f)
+		fmt.Fprintf(os.Stderr,
+			"git-remote-coffer: warning: newest manifest generation %d is unreadable and an older state is being served — the damaged generation will be quarantined by this push; run gitcoffer fsck afterwards, and re-push from the original repository anything reported ok just before the damage\n", f)
 	}
-	return nil
 }
 
 func (s *session) handleOption(arg string) {
@@ -436,9 +435,7 @@ func (s *session) applyPush(specs []string) (err error) {
 	if err := s.openStore(); err != nil {
 		return err
 	}
-	if err := s.refusePushOnFallback(); err != nil {
-		return err
-	}
+	s.warnPushOnFallback()
 	started := time.Now()
 	defer func() {
 		// Only a completed push is "done": an aborted one must not end
@@ -461,6 +458,10 @@ func (s *session) applyPush(specs []string) (err error) {
 		if err := s.store.Reload(); err != nil {
 			return err
 		}
+		// Damage can develop between the open-time check and this reload:
+		// surface it, or the push would quarantine a slot with no
+		// explanation.
+		s.warnPushOnFallback()
 	}
 	m := s.store.Manifest()
 	byName := make(map[string]vault.RefVal, len(m.Refs))

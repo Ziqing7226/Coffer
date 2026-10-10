@@ -146,7 +146,7 @@ unchanged. The on-disk format is specified and frozen in
 | `gitcoffer init <dir>` | create a new vault (prompts for a new passphrase) |
 | `gitcoffer status <dir>` | inspect a vault: format, slots, refs, packs |
 | `gitcoffer rekey <dir>` | change the passphrase of the slot it opens |
-| `gitcoffer key add <dir> [-keyfile <path>]` | add a passphrase slot, optionally requiring a key file as a second factor |
+| `gitcoffer key add [-keyfile <path>] <dir>` | add a passphrase slot, optionally requiring a key file as a second factor (the flag goes before the directory) |
 | `gitcoffer key remove <dir> <id>` | remove a key slot (never the last one) |
 | `gitcoffer key list <dir>` | list key slots (no passphrase needed) |
 | `gitcoffer gc [--prune] <dir>` | report orphaned objects, temp files, old generations — `--prune` actually removes them |
@@ -197,7 +197,11 @@ FAT32 file-size caps) are listed in
 
 - `gitcoffer fsck` verifies every AEAD seal, the manifest chain, and every
   object's checksum; run it when a medium had a rough day. It reports the
-  first divergence per structure and never attempts recovery.
+  first divergence per structure and never attempts recovery. When it
+  reports an unreadable manifest generation, re-push from the original
+  repository anything that was acknowledged just before the failure —
+  the damaged generation is quarantined by the next push, and
+  `gitcoffer gc --prune` would otherwise reclaim its objects.
 - `gitcoffer gc` reports reclaimable space from interrupted pushes
   (orphaned object files), leftover temp files, and old manifest
   generations; `--prune` performs the deletion. It refuses to delete
@@ -222,6 +226,7 @@ FAT32 file-size caps) are listed in
 | Push refused: repository is shallow | The push came from a depth-limited clone, whose history is truncated. Run `git fetch --unshallow` against its current origin and push again. |
 | Push or fetch refused: repository uses sha256 object ids | The vault format speaks sha1 object ids. Re-create the repository with the default sha1 format (`git init` without `--object-format=sha256`). |
 | LFS repository: push fails with `batch request: missing protocol` | Expected: git-lfs does not support `coffer::` remotes. The vault stores only the LFS pointer files (the push prints a warning). Remove the lfs pre-push hook if you want the pointers in the vault, and back the LFS objects up separately. |
+| Push refused: newest manifest generation unreadable | The newest vault index is damaged; an older state is being served. Run `gitcoffer fsck`, then simply push again — the damaged generation is quarantined automatically. Re-push from the original repository anything that reported ok just before the failure (gc --prune would otherwise reclaim it). |
 | Push refused: non-fast-forward | The vault's branch would be overwritten by unrelated or rewritten history. Fetch and merge first; `--force` overwrites deliberately — the overwritten commits become unrecoverable after `gitcoffer gc --prune`. |
 | `another coffer operation is writing` | A concurrent writer holds the vault lock. On Windows, a crashed holder's lock is stolen as soon as its pid is detected dead; on any platform, if you are certain none is running you can delete `<vault>/vault.lock` directly. |
 | Clone of a non-`main` repository checks out an empty tree | Fixed in 1.0.0-pre: the alphabetically first branch is advertised as HEAD. Update both binaries. |
