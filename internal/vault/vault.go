@@ -96,6 +96,7 @@ type Store struct {
 	payloadHash  string
 	lockGuard    string // content of our vault.lock, empty when unlocked
 	openedSlotID int    // key slot the current passphrase authenticated
+	fallbackFrom int    // newest manifest generation that was unreadable, 0 = none
 }
 
 // Dir returns the vault directory.
@@ -110,6 +111,12 @@ func (s *Store) Manifest() *Manifest { return s.manifest }
 
 // ManifestNum returns the generation number of the current manifest.
 func (s *Store) ManifestNum() int { return s.manifestNum }
+
+// FallbackFromGeneration reports the newest manifest generation that was
+// unreadable when the vault opened, forcing the effective state back to
+// an older generation. Zero means no fallback happened. Callers should
+// surface this — silent fallback hides a damaged medium.
+func (s *Store) FallbackFromGeneration() int { return s.fallbackFrom }
 
 // ReadMeta reads and validates the plaintext vault header without deriving
 // any key. The header is untrusted input: the read is bounded, the vault
@@ -244,13 +251,18 @@ func Open(dir, passphrase string) (*Store, error) {
 	}
 	s := &Store{dir: dir, meta: meta, dek: dek, openedSlotID: openedSlot}
 	var lastErr error
+	var highestFailed int
 	for _, n := range manifestGenerations(dir) {
 		m, hash, err := s.readManifestNum(n)
 		if err != nil {
 			lastErr = err
+			if highestFailed == 0 {
+				highestFailed = n
+			}
 			continue
 		}
 		s.manifest, s.manifestNum, s.payloadHash = m, n, hash
+		s.fallbackFrom = highestFailed
 		return s, nil
 	}
 	if lastErr == nil {

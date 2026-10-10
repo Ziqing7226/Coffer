@@ -228,6 +228,10 @@ func statusCmd(args []string) error {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	if f := s.FallbackFromGeneration(); f > 0 {
+		fmt.Printf("  [warn] newest manifest generation %d is unreadable - showing generation %d; run gitcoffer fsck\n",
+			f, s.ManifestNum())
+	}
 	fmt.Printf("  current generation: %d\n  refs (%d):\n", s.ManifestNum(), len(names))
 	for _, name := range names {
 		fmt.Printf("    %s %s\n", m.Refs[name].OID, name)

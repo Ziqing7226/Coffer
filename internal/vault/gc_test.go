@@ -138,3 +138,26 @@ func openStore(t *testing.T, dir, pass string) *Store {
 	}
 	return s
 }
+
+func TestOpenWarnsViaFallbackField(t *testing.T) {
+	dir := t.TempDir()
+	storeWithObject(t, dir, "pass")
+	// gen 2 is now newest; corrupt it so Open must fall back to gen 1.
+	path := filepath.Join(dir, "manifest.2")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(path, data[:len(data)-3], 0o600)
+
+	s2, err := Open(dir, "pass")
+	if err != nil {
+		t.Fatalf("fallback open failed: %v", err)
+	}
+	if s2.FallbackFromGeneration() != 2 {
+		t.Fatalf("fallback = %d, want 2", s2.FallbackFromGeneration())
+	}
+	if s2.ManifestNum() != 1 {
+		t.Fatalf("effective generation = %d, want 1", s2.ManifestNum())
+	}
+}

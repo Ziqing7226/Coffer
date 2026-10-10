@@ -70,6 +70,12 @@ func (s *session) loop() error {
 			s.reply("option", "object-format", "list", "fetch", "push")
 
 		case cmd == "list" || cmd == "list for-push":
+			if cmd == "list for-push" {
+				// Warn before the pre-push hook runs: an LFS hook failure
+				// would otherwise abort the push before the batch (where
+				// the warning used to live) ever reaches us.
+				warnLFS()
+			}
 			if err := s.listRefs(); err != nil {
 				return err
 			}
@@ -288,7 +294,6 @@ func (s *session) checkCallerRepository(forPush bool) error {
 			return fmt.Errorf(
 				"this repository is a shallow (depth-limited) clone; pushing would store truncated history and break later backups — run `git fetch --unshallow` against its current origin, then push again")
 		}
-		warnLFS()
 	}
 	return nil
 }
@@ -436,6 +441,7 @@ func (s *session) applyPush(specs []string) (err error) {
 	pushed := 0
 	failed := false
 	for _, spec := range specs {
+		forced := strings.HasPrefix(spec, "+")
 		spec = strings.TrimPrefix(spec, "+")
 		i := strings.Index(spec, ":")
 		if i < 0 {
@@ -458,6 +464,28 @@ func (s *session) applyPush(specs []string) (err error) {
 				continue
 			}
 			oid = resolved
+		}
+		// Server-side non-fast-forward protection (the same contract
+		// git-receive-pack enforces for native remotes): a branch that
+		// already exists in the vault may only move to a descendant of
+		// its current tip, unless the client forced the update. The
+		// client's own check does not protect here — a caller without
+		// the vault's objects cannot verify ancestry and may send
+		// anyway, which would silently overwrite the branch.
+		if old, exists := byName[dst]; exists && !forced {
+			if oid == old.OID {
+				// No-op update: falls through as a fast-forward of itself.
+			} else if !packproc.ExistsInCaller(old.OID) {
+				report = append(report, fmt.Sprintf(
+					"error %s non-fast-forward: the vault's current tip is not present in this repository — push from the repository this vault was cloned from, or push with --force to overwrite deliberately", dst))
+				failed = true
+				continue
+			} else if !packproc.IsAncestorInCaller(old.OID, oid) {
+				report = append(report, fmt.Sprintf(
+					"error %s non-fast-forward: the vault's %s would be overwritten by rewritten history — fetch and merge first, or push with --force to overwrite deliberately", dst, dst))
+				failed = true
+				continue
+			}
 		}
 		byName[dst] = vault.RefVal{OID: oid}
 		revs = append(revs, oid)

@@ -147,3 +147,51 @@ func TestLFSPushWarns(t *testing.T) {
 		t.Fatalf("LFS warning missing from push output:\n%s", out)
 	}
 }
+
+// TestNonFastForwardProtection pins the server-side ancestry contract:
+// pushing unrelated or rewritten history over an existing vault branch
+// is rejected (the caller cannot be trusted to have checked), while a
+// genuine fast-forward and an explicit --force pass. Without this, an
+// unrelated push silently overwrites the branch and the overwritten
+// commits are unrecoverable after gc.
+func TestNonFastForwardProtection(t *testing.T) {
+	vaultDir := newVault(t)
+	src := newRepo(t, "src")
+	git(t, src, nil, "remote", "add", "origin", vaultURL(vaultDir))
+	git(t, src, nil, "push", "-q", "-u", "origin", "main")
+	landed := rev(t, src, "main")
+
+	// An unrelated repository with no common history.
+	other := filepath.Join(t.TempDir(), "other")
+	os.MkdirAll(other, 0o755)
+	git(t, other, nil, "init", "-q", "-b", "main", ".")
+	git(t, other, nil, "config", "user.name", "O")
+	git(t, other, nil, "config", "user.email", "o@inv.alid")
+	writeFile(t, other, "unrelated.txt", "different universe\n")
+	git(t, other, nil, "add", ".")
+	git(t, other, nil, "commit", "-qm", "unrelated history")
+	git(t, other, nil, "remote", "add", "origin", vaultURL(vaultDir))
+
+	out := gitFail(t, other, nil, "push", "origin", "main")
+	if !strings.Contains(out, "non-fast-forward") {
+		t.Fatalf("unrelated push not rejected as non-fast-forward: %s", out)
+	}
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != landed {
+		t.Fatal("rejected non-fast-forward push changed the vault")
+	}
+
+	// The same history with an explicit force lands.
+	git(t, other, nil, "push", "-q", "--force", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, other, "main") {
+		t.Fatal("forced overwrite did not land")
+	}
+
+	// And the legitimate relay: a clone of the vault pushes a descendant.
+	clone := filepath.Join(t.TempDir(), "clone")
+	git(t, t.TempDir(), nil, "clone", "-q", vaultURL(vaultDir), clone)
+	commit(t, clone, "f", "relay\n", "relay commit")
+	git(t, clone, nil, "push", "-q", "origin", "main")
+	if got := openVault(t, vaultDir).Manifest().Refs["refs/heads/main"].OID; got != rev(t, clone, "main") {
+		t.Fatal("legitimate fast-forward relay did not land")
+	}
+}

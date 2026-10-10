@@ -227,6 +227,14 @@ func RunIn(dir string, args ...string) error {
 	return nil
 }
 
+// IsAncestorInCaller reports whether old is an ancestor of (or equal to)
+// new in the repository invoking the helper. Any failure — including a
+// missing object — reports false: the caller must then treat the update
+// as unverifiable.
+func IsAncestorInCaller(old, new string) bool {
+	return exec.Command("git", "merge-base", "--is-ancestor", old, new).Run() == nil
+}
+
 // CallerObjectFormat returns the object format of the repository invoking
 // the helper ("sha1" or "sha256").
 func CallerObjectFormat() (string, error) {

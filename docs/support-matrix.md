@@ -33,6 +33,7 @@ fresh clone 3.4 s, incremental push 3.5 s — see
 | Non-ASCII and spaced paths | Fully supported in repository content and vault paths. |
 | Bare repositories | Pushing from a bare repository works — the object flow is identical. |
 | `--atomic`, `--force-with-lease`, `--dry-run`, deletions, annotated tags | Supported and covered by the e2e suite. |
+| Non-fast-forward pushes | Enforced server-side: a branch that exists in the vault only moves to a descendant of its current tip unless forced — an unrelated repository cannot silently overwrite it. |
 | Refs other than branches and tags | Any fully-qualified ref (e.g. `refs/notes/*`) round-trips. |
 
 ## Recovery scope
