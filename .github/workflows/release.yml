@@ -44,7 +44,11 @@ jobs:
               else
                 tar -czf "${stage}.tar.gz" "${stage}"
               fi
-              rm -rf "${stage}" )
+              # Keep the linux-amd64 stage unpacked for the SBOM scan.
+              if [ "$target" != "linux/amd64" ]; then
+                rm -rf "${stage}"
+              fi
+            )
           done
           ( cd dist && sha256sum -- *.zip *.tar.gz > checksums.txt )
           ls -la dist
@@ -75,8 +79,9 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          syft scan "file:gitcoffer-${GITHUB_REF_NAME#v}-linux-amd64.tar.gz" \
+          syft scan "dir:gitcoffer-${GITHUB_REF_NAME#v}-linux-amd64" \
             -o spdx-json=gitcoffer-${GITHUB_REF_NAME#v}-sbom.spdx.json
+          rm -rf gitcoffer-${GITHUB_REF_NAME#v}-linux-amd64
       - name: Attest build provenance for every archive
         uses: actions/attest-build-provenance@v2
         with:
