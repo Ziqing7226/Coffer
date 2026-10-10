@@ -117,6 +117,13 @@ with any remote). On Windows:
 only git, Coffer, and the passphrase are needed:
 `git clone coffer::/mnt/usb/myproject.coffer`.
 
+### Nicer remote URLs
+
+```console
+$ git config --global url."coffer::/mnt/usb/".insteadOf "usb://"
+$ git remote add origin usb://myproject.coffer
+```
+
 ### The coffer CLI
 
 | Command | Purpose |

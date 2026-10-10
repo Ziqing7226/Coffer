@@ -175,7 +175,9 @@ bootstrapping, never a dependency.
 `gitcoffer export-bundle <vault> <file.bundle>` decrypts the vault into a
 standard git bundle that stock git alone can clone or verify — the exit
 path needs neither Coffer nor the vault format. The bundle file itself
-is plaintext, so store it accordingly. `gitcoffer doctor <vault>` gives a
+is plaintext, so store it accordingly. The bundle is a point-in-time
+snapshot: a push that lands while the export runs is simply not in it
+(export never blocks writers). `gitcoffer doctor <vault>` gives a
 one-shot health report of the environment and the vault; boundaries of
 what is supported (LFS content, submodules, sha256, shallow clones,
 FAT32 file-size caps) are listed in

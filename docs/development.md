@@ -48,8 +48,11 @@ Prove the risky unknowns with throwaway code.
       wrong passphrase, cancel).
 - [ ] Windows: helper discovery from VSCode's bundled git confirmed;
       binary stdio confirmed free of CRLF issues.
-- [ ] Validation floor confirmed against a pinned git 2.30 build
-      (container) — protocol behavior, not just compilation.
+- [x] Validation floor confirmed against a pinned git 2.30 build
+      (container) — protocol behavior, not just compilation. Delivered
+      late, in the 1.0.0 cycle: the `floor-git-230` CI leg builds
+      git 2.30.0 from source and runs the full suite — and immediately
+      caught the valueless option-probe incompatibility.
 
 Exit criteria: a push initiated from VSCode reaches our code on every
 supported operating system.
@@ -174,14 +177,18 @@ already shipped:
       every archive, toolchain pinned via go.mod, CGO disabled and
       trimpath on (byte-identical rebuilds verified for a fixed
       toolchain and tree).
-- [ ] Golden vault fixture pinning cross-version readability (created by
+- [x] Golden vault fixture pinning cross-version readability (created by
       v1.0.0-pre, read forever).
-- [ ] Corruption matrix expansion: truncation, generation rollback,
+- [x] Corruption matrix expansion: truncation, generation rollback,
       chunk transposition.
 - [x] CI hardening: `go test -race` (Linux leg), govulncheck, a git
       2.30 container leg running the full suite, and fuzz seeds for the
       vault.meta, manifest, and chunk-framing parsers.
-- [ ] rc.1 release, then 1.0.0, then store submissions with real hashes.
+- [x] v1.0.0-rc.1 release with the trust chain live (keyless signature,
+      SBOM, attestations — verified end to end on the published assets).
+- [ ] Stable 1.0.0, then store submissions with real hashes (the scoop
+      and Homebrew repos exist; manifests in `packaging/` take the
+      released hashes).
 
 Deliberately declined: per-run CI performance budgets (flaky), a formal
 ADR directory (decisions live in the spec and architecture notes), and
