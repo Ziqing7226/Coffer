@@ -27,12 +27,11 @@ var version = ""
 // versionString renders the version line: the stamped release version,
 // or the embedded VCS revision for source builds.
 func versionString() string {
-	if version != "" {
-		return version
-	}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		var rev, commitDate string
-		dirty := false
+	info, _ := debug.ReadBuildInfo()
+	var rev, commitDate, mainVersion string
+	dirty := false
+	if info != nil {
+		mainVersion = info.Main.Version
 		for _, s := range info.Settings {
 			switch s.Key {
 			case "vcs.revision":
@@ -43,19 +42,39 @@ func versionString() string {
 				dirty = s.Value == "true"
 			}
 		}
-		if rev != "" {
-			suffix := ""
-			if len(rev) > 12 {
-				rev = rev[:12]
-			}
-			if commitDate != "" {
-				suffix = " (" + commitDate + ")"
-			}
-			if dirty {
-				suffix += " (modified)"
-			}
-			return "development build from commit " + rev + suffix
+	}
+	return renderVersion(version, mainVersion, rev, commitDate, dirty)
+}
+
+// renderVersion is the pure decision table behind `gitcoffer version`:
+//   - release archives carry the -ldflags stamp;
+//   - `go install …@vX` builds carry the module version in BuildInfo;
+//   - a plain build inside the repository reports the commit it was
+//     built from;
+//   - only a context-free build falls back to the generic note.
+func renderVersion(stamped, mainVersion, rev, commitDate string, dirty bool) string {
+	if stamped != "" {
+		return stamped
+	}
+	// A plain build inside the repository has VCS info; prefer the commit
+	// line over the derived pseudo-version (vTAG.0.<time>-<hash>), which
+	// is noisy. `go install …@vX` builds carry the module version but no
+	// VCS info — that exact tag is what those users expect to see.
+	if rev != "" {
+		if len(rev) > 12 {
+			rev = rev[:12]
 		}
+		suffix := ""
+		if commitDate != "" {
+			suffix = " (" + commitDate + ")"
+		}
+		if dirty {
+			suffix += " (modified)"
+		}
+		return "development build from commit " + rev + suffix
+	}
+	if mainVersion != "" && mainVersion != "(devel)" {
+		return mainVersion
 	}
 	return "development build"
 }

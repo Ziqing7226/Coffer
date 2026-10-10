@@ -21,10 +21,14 @@ put both binaries on `PATH`. Verify with:
 
 ```console
 $ gitcoffer version
-gitcoffer 1.0.0-pre
+gitcoffer v1.0.0-rc.1
 $ git-remote-coffer          # run with no arguments, prints its usage note;
                              # normally git invokes it for you
 ```
+
+The version line is self-describing: release archives print the
+release version, `go install …@vX` prints that exact version, and a
+repository build reports the commit it was built from.
 
 **Build from source** with Go ≥ 1.27:
 

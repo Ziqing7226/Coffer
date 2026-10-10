@@ -129,3 +129,25 @@ func TestDocsFreeOfRenameArtifacts(t *testing.T) {
 		t.Error("README title is not GitCoffer")
 	}
 }
+
+func TestRenderVersion(t *testing.T) {
+	cases := []struct {
+		name                      string
+		stamped, mainV, rev, date string
+		dirty                     bool
+		want                      string
+	}{
+		{"release stamp wins", "v1.0.0", "v1.0.0", "abc", "", false, "v1.0.0"},
+		{"go install @tag", "", "v1.0.0-rc.1", "", "", false, "v1.0.0-rc.1"},
+		{"repo build reports commit", "", "(devel)", "0123456789abcdef", "2026-01-01T00:00:00Z", false,
+			"development build from commit 0123456789ab (2026-01-01T00:00:00Z)"},
+		{"dirty marker", "", "(devel)", "0123456789abcdef", "", true,
+			"development build from commit 0123456789ab (modified)"},
+		{"context-free fallback", "", "", "", "", false, "development build"},
+	}
+	for _, tc := range cases {
+		if got := renderVersion(tc.stamped, tc.mainV, tc.rev, tc.date, tc.dirty); got != tc.want {
+			t.Errorf("%s: renderVersion = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

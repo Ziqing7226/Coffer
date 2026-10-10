@@ -78,8 +78,12 @@ the helper through `PATH`; no administrator rights needed). Verify:
 
 ```console
 $ gitcoffer version
-gitcoffer 1.0.0-pre
+gitcoffer v1.0.0-rc.1
 ```
+
+The version line is self-describing: release archives print the
+release version, `go install …@vX` prints that exact version, and a
+build from the repository reports the commit it was built from.
 
 Or build from source with Go ≥ 1.27:
 
