@@ -161,38 +161,81 @@ run in CI.
       needed; a FAT loop-device variant would need privileges and is
       optional.
 
-## Toward 1.0.0 (adopted work plan)
+## Toward 1.0.0 (gated work plan)
 
-Priorities absorbed from an outside review, cross-checked against what
-already shipped:
+The stable tag must be mature enough to earn trust, so every maturity
+item lands BEFORE 1.0.0 and the release candidate gates on real
+dual-platform testing. The flow: finish the maturity batch, cut rc.2,
+run the full checklist on real Windows hardware and Linux, and only
+then cut 1.0.0.
 
-- [x] Independent security review — done (three cold reviewers; findings
-      above, all fixed).
-- [x] Disk-full robustness — done (user-namespace tmpfs suite).
-- [x] Security policy, checksums, exit path (`export-bundle`), `doctor`,
-      gc `--dry-run`, LFS warning, support matrix, "What Coffer is not",
-      changelog.
-- [x] Release trust chain: cosign keyless signing (Sigstore OIDC, no
-      stored secrets), SBOM (spdx-json), GitHub build attestations on
-      every archive, toolchain pinned via go.mod, CGO disabled and
-      trimpath on (byte-identical rebuilds verified for a fixed
-      toolchain and tree).
-- [x] Golden vault fixture pinning cross-version readability (created by
-      v1.0.0-pre, read forever).
-- [x] Corruption matrix expansion: truncation, generation rollback,
-      chunk transposition.
-- [x] CI hardening: `go test -race` (Linux leg), govulncheck, a git
-      2.30 container leg running the full suite, and fuzz seeds for the
-      vault.meta, manifest, and chunk-framing parsers.
-- [x] v1.0.0-rc.1 release with the trust chain live (keyless signature,
-      SBOM, attestations — verified end to end on the published assets).
+**Done:**
+
+- [x] Independent security review — three cold reviewers (cryptography,
+      Go application security, git protocol and backup integrity); all
+      confirmed findings fixed with regression tests.
+- [x] Disk-full robustness — user-namespace tmpfs suite.
+- [x] Release trust chain live on published assets: keyless Sigstore
+      signature, SBOM (spdx-json), build attestations, checksums; the
+      linux-amd64 archive and its checksum verified end to end with
+      cosign.
+- [x] Security policy, export-bundle, doctor, LFS warning, support
+      matrix, "What Coffer is not", changelog.
+- [x] Golden vault fixture, corruption matrix expansion, CI hardening
+      (`go test -race`, govulncheck, git 2.30 floor leg, fuzz seeds).
+- [x] Server-side non-fast-forward protection (from the Windows field
+      report — the data-loss risk).
+- [x] GitCoffer rename and branch hygiene: all merged working branches
+      deleted; main is the line of development.
+- [x] v1.0.0-rc.1 published and verified end to end.
+
+**The 1.0.0 maturity batch (lands before rc.2):**
+
+- [x] `gitcoffer version --json` for structured consumers.
+- [x] gc CLI finalized: report-only by default, real deletion requires
+      `--prune` (the 1.0.0 window is the last chance to settle the CLI
+      shape).
+- [ ] Shell completions (bash, zsh, fish, powershell).
+- [ ] install.sh / install.ps1 that verify checksums and the release
+      signature.
+- [ ] A final cold security review over the complete 1.0.0 code — the
+      earlier round predates export-bundle, doctor, non-fast-forward
+      protection, and the gc shape.
+
+**The gate:**
+
+- [ ] v1.0.0-rc.2 published.
+- [ ] Dual-platform robustness pass: the full functional checklist
+      (init, push/pull/clone incl. non-default branches, doctor,
+      export-bundle, gc --prune, rekey with credential eviction, key
+      files, wrong-passphrase handling, corruption handling, LFS
+      pointer behavior, cross-system relay) passes on real Windows
+      hardware AND on Linux against rc.2.
 - [ ] Stable 1.0.0, then store submissions with real hashes (the scoop
       and Homebrew repos exist; manifests in `packaging/` take the
-      released hashes).
+      released hashes; winget ships as a PR from the maintainer's
+      fork).
 
-Deliberately declined: per-run CI performance budgets (flaky), a formal
-ADR directory (decisions live in the spec and architecture notes), and
-a comparison page (replaced by the neutral "Choosing an approach").
+Deliberately deferred PAST 1.0.0 — recorded so the deferral is a
+decision, not an omission:
+
+- **gc repacking.** Every push writes one object file holding only the
+  new objects, and the manifest carries the full inventory forward —
+  manifest size and clone time grow with push count. Repacking would
+  consolidate object files behind the same crash-safe ordering. It is
+  a data-path optimization and is safer with real-world data
+  accumulated.
+- **Binding the manifest generation into the AAD (format v2).** A
+  medium-holder who kept an old manifest file can re-file it under a
+  higher generation (rollback); today fsck's chain check exposes this,
+  but authentication itself would reject it if the generation were part
+  of the AAD. That is a format change and v1 is frozen.
+- VSCode companion extension, CI performance budgets, an ADR directory.
+
+Deliberately declined: per-run CI performance budgets as failures
+(flaky), a formal ADR directory (decisions live in the spec and
+architecture notes), and a comparison page (replaced by the neutral
+"Choosing an approach").
 
 ## Testing strategy
 
