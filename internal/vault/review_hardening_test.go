@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -238,7 +237,7 @@ func TestPlantedManifestShapesRefused(t *testing.T) {
 
 	// A FIFO must be refused as non-regular, not block on open.
 	fifo := filepath.Join(dir, "manifest.98")
-	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+	if err := mkfifoForTest(fifo); err != nil {
 		t.Fatal(err)
 	}
 	start = time.Now()
