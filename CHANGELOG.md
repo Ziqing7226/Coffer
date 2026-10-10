@@ -10,6 +10,17 @@
   (`scripts/install.sh`, `scripts/install.ps1`) download, verify, and
   install release binaries in one step.
 
+- Final pre-1.0.0 security review (cold, full code) — all findings
+  fixed: manifest reads are bounded and symlink-refusing like every
+  other metadata read (a planted manifest.<n> symlink/FIFO/oversized
+  file previously hung or OOM'd every operation); concurrent key
+  operations re-read vault.meta under the lock so a rotation can no
+  longer be silently undone by a stale snapshot; the helper surfaces
+  fallback-to-older-generation instead of silently serving stale data
+  (fetch warns, push refuses with the fsck remedy, and the commit
+  slot-occupied error distinguishes damage from concurrency); a planted
+  obj symlink no longer redirects object writes into an arbitrary host
+  directory.
 - Server-side non-fast-forward protection: a vault branch only moves to
   a descendant of its current tip unless the push is forced — unrelated
   or rewritten histories are refused with a remedy instead of silently

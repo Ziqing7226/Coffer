@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -206,5 +207,77 @@ func TestFsckDetectsAppendedBytes(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("appended bytes not reported: %v", findings)
+	}
+}
+
+func TestPlantedManifestShapesRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink and mkfifo semantics differ on Windows")
+	}
+	dir := t.TempDir()
+	storeWithObject(t, dir, "pass")
+
+	// A planted manifest.<n> symlinked to a device must fail fast instead
+	// of reading forever (regression for the bounded-read sweep missing
+	// the manifest path).
+	if err := os.Symlink("/dev/zero", filepath.Join(dir, "manifest.99")); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	s, err := Open(dir, "pass")
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("vault with a planted manifest.99 symlink refused to open at all: %v", err)
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("open took %v — the planted symlink was read", elapsed)
+	}
+	if s.FallbackFromGeneration() != 99 {
+		t.Fatalf("planted generation not surfaced as fallback: %d", s.FallbackFromGeneration())
+	}
+
+	// A FIFO must be refused as non-regular, not block on open.
+	fifo := filepath.Join(dir, "manifest.98")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	start = time.Now()
+	_, err = Open(dir, "pass")
+	elapsed = time.Since(start)
+	if err != nil {
+		t.Fatalf("vault with a planted FIFO refused to open at all: %v", err)
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("open took %v — the FIFO blocked", elapsed)
+	}
+}
+
+func TestPlantedObjSymlinkRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink semantics differ on Windows")
+	}
+	dir := t.TempDir()
+	s, _ := storeWithObject(t, dir, "pass")
+
+	// Redirect the object directory at an innocent host directory: the
+	// next push must refuse instead of littering it with ciphertext.
+	target := filepath.Join(t.TempDir(), "innocent")
+	if err := os.Mkdir(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, objDirName)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, objDirName)); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.WriteObject(strings.NewReader("pack")); err == nil ||
+		!strings.Contains(err.Error(), "not a real directory") {
+		t.Fatalf("write through a planted obj symlink not refused: %v", err)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("the symlink target was written into: %v, %d entries", err, len(entries))
 	}
 }

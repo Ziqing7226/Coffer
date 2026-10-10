@@ -198,9 +198,12 @@ then cut 1.0.0.
 - [ ] Shell completions (bash, zsh, fish, powershell).
 - [ ] install.sh / install.ps1 that verify checksums and the release
       signature.
-- [ ] A final cold security review over the complete 1.0.0 code — the
+- [x] A final cold security review over the complete 1.0.0 code — the
       earlier round predates export-bundle, doctor, non-fast-forward
-      protection, and the gc shape.
+      protection, and the gc shape. Verdict: ready with fixes; all four
+      findings (unbounded manifest reads, stale-snapshot meta rewrites,
+      helper silence on fallback generations, obj-symlink write-through)
+      are fixed with regression tests.
 
 **The gate:**
 

@@ -153,3 +153,47 @@ func TestKeyfileMinimumEntropy(t *testing.T) {
 		t.Fatalf("rejected add still changed the slot count: %d", len(s.Meta().Slots))
 	}
 }
+
+func TestMetaOpsUseFreshState(t *testing.T) {
+	dir := t.TempDir()
+	s1, _ := storeWithObject(t, dir, "pass-a")
+	s2, err := Open(dir, "pass-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// s2 rotates the passphrase while s1 still holds its Open-time
+	// snapshot; s1's later AddSlot must land on the FRESH slot set —
+	// not overwrite it with the stale snapshot (which would silently
+	// undo the rotation while reporting success).
+	if err := s2.Rekey("pass-b"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s1.AddSlot("pass-c", ""); err != nil {
+		t.Fatalf("add on a stale snapshot: %v", err)
+	}
+	if _, err := Open(dir, "pass-b"); err != nil {
+		t.Fatalf("the concurrent rotation was silently undone: %v", err)
+	}
+	if _, err := Open(dir, "pass-c"); err != nil {
+		t.Fatalf("the added slot does not open: %v", err)
+	}
+
+	// Rotation of a slot that a concurrent operation removed fails
+	// cleanly instead of resurrecting it.
+	if err := s2.Rekey("pass-d"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(dir, "pass-c"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.RemoveSlot(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.Rekey("pass-e"); err != nil {
+		t.Fatalf("rekey of the opened slot refused: %v", err)
+	}
+	if _, err := Open(dir, "pass-e"); err != nil {
+		t.Fatal(err)
+	}
+}

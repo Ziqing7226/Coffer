@@ -44,6 +44,20 @@ func slotSecret(dir string, slot crypto.Slot, passphrase string) (string, error)
 	}
 }
 
+// refreshMeta re-reads vault.meta into the store. Meta operations call
+// it under the writer lock: the lock serializes, but the in-memory meta
+// is the snapshot from Open — without the refresh, a concurrent key
+// operation that landed in between would be silently overwritten by our
+// stale copy (a rekey reported as successful could be undone).
+func (s *Store) refreshMeta() error {
+	meta, err := ReadMeta(s.dir)
+	if err != nil {
+		return err
+	}
+	s.meta = meta
+	return nil
+}
+
 // rewriteMeta atomically replaces vault.meta (spec §6, pattern 3).
 func (s *Store) rewriteMeta() error {
 	data, err := json.MarshalIndent(s.meta, "", "  ")
@@ -72,6 +86,9 @@ func (s *Store) AddSlot(newPass, keyfile string) (int, error) {
 		return 0, err
 	}
 	defer release()
+	if err := s.refreshMeta(); err != nil {
+		return 0, err
+	}
 	id := 0
 	for _, sl := range s.meta.Slots {
 		if sl.ID >= id {
@@ -146,6 +163,9 @@ func (s *Store) RemoveSlot(id int) error {
 		return err
 	}
 	defer release()
+	if err := s.refreshMeta(); err != nil {
+		return err
+	}
 	if len(s.meta.Slots) <= 1 {
 		return errors.New("refusing to remove the last key slot")
 	}
@@ -175,15 +195,23 @@ func (s *Store) Rekey(newPass string) error {
 		return err
 	}
 	defer release()
+	if err := s.refreshMeta(); err != nil {
+		return err
+	}
 	fresh, err := crypto.SealSlot(s.openedSlotID, newPass, s.dek, s.meta.ID, crypto.DefaultParams())
 	if err != nil {
 		return err
 	}
+	found := false
 	for i, sl := range s.meta.Slots {
 		if sl.ID == s.openedSlotID {
 			s.meta.Slots[i] = *fresh
+			found = true
 			break
 		}
+	}
+	if !found {
+		return fmt.Errorf("the key slot this session opened (slot %d) no longer exists — another operation changed the vault's keys; re-open and try again", s.openedSlotID)
 	}
 	return s.rewriteMeta()
 }

@@ -26,6 +26,7 @@ const (
 	defaultGenerationsKept = 2
 	objectNameBytes        = 16 // 32 hex chars per spec §5
 	maxMetaBytes           = 1 << 20
+	maxManifestBytes       = 8 << 20
 	maxKeySlots            = 16
 )
 
@@ -169,6 +170,9 @@ func Create(dir, passphrase string, params crypto.Argon2Params) (*Store, error) 
 	if err := os.MkdirAll(filepath.Join(dir, objDirName), 0o700); err != nil {
 		return nil, err
 	}
+	if info, err := os.Lstat(filepath.Join(dir, objDirName)); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, errors.New("the vault's object directory is missing or not a real directory — the medium may be damaged or tampered with")
+	}
 	id, err := crypto.RandomHex(16)
 	if err != nil {
 		return nil, err
@@ -272,7 +276,10 @@ func Open(dir, passphrase string) (*Store, error) {
 }
 
 func (s *Store) readManifestNum(n int) (*Manifest, string, error) {
-	data, err := os.ReadFile(filepath.Join(s.dir, fmt.Sprintf("%s%d", manifestPrefix, n)))
+	// Manifest files are untrusted on-medium input like everything else:
+	// a planted manifest.<n> symlink, FIFO, or oversized file must fail
+	// the read instead of hanging the process or exhausting memory.
+	data, err := readLimited(filepath.Join(s.dir, fmt.Sprintf("%s%d", manifestPrefix, n)), maxManifestBytes)
 	if err != nil {
 		return nil, "", err
 	}
@@ -345,6 +352,12 @@ func (s *Store) Reload() error {
 // returns its name. Following spec §6, the file is written to a temp name,
 // fsynced, renamed, and the directory flushed; it is never modified again.
 func (s *Store) WriteObject(plain io.Reader) (string, error) {
+	// The obj directory itself is an untrusted path component: a planted
+	// obj symlink would redirect every object write into an arbitrary
+	// host directory. Refuse unless it is a real directory.
+	if info, err := os.Lstat(filepath.Join(s.dir, objDirName)); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("the vault's object directory is missing or not a real directory — the medium may be damaged or tampered with")
+	}
 	var name string
 	for attempt := 0; attempt < 4; attempt++ {
 		candidate, err := crypto.RandomHex(objectNameBytes)
@@ -482,6 +495,12 @@ func (s *Store) commit(next *Manifest) error {
 	// overwrite its update.
 	if _, serr := os.Lstat(final); serr == nil {
 		os.Remove(tmp)
+		// Distinguish the two ways a slot can be taken: a concurrent
+		// writer committed a readable generation (retry works), or a
+		// damaged file occupies it (retry can never succeed).
+		if _, _, rerr := s.readManifestNum(newNum); rerr != nil {
+			return fmt.Errorf("manifest generation %d exists but is unreadable — a damaged file occupies the slot; run gitcoffer fsck", newNum)
+		}
 		return errors.New("manifest generation already exists — another writer committed concurrently; retry the operation")
 	}
 	if err := os.Rename(tmp, final); err != nil {

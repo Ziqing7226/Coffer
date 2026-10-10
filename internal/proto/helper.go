@@ -151,6 +151,14 @@ func (s *session) openStore() error {
 	if err != nil {
 		return err
 	}
+	// A damaged newest generation makes the vault serve an older state:
+	// silent stale fetches and push dead-ends are exactly how damaged
+	// media go unnoticed, so surface it on every operation.
+	if f := st.FallbackFromGeneration(); f > 0 {
+		fmt.Fprintf(os.Stderr,
+			"git-remote-coffer: warning: newest manifest generation %d is unreadable — serving the older generation %d; run gitcoffer fsck\n",
+			f, st.ManifestNum())
+	}
 	// The passphrase authenticated: let git's credential helpers remember
 	// it if the user configured any (cache, osxkeychain, wincred, store).
 	// Best-effort — a failure to remember must not fail the operation.
@@ -158,6 +166,18 @@ func (s *session) openStore() error {
 		fmt.Fprintf(os.Stderr, "git-remote-coffer: %v (continuing without caching)\n", err)
 	}
 	s.store = st
+	return nil
+}
+
+// refusePushOnFallback keeps pushes off a vault that is serving a
+// fallback manifest generation: the damaged file may occupy the next
+// generation number, so the commit would dead-end with a misleading
+// error — and writing onto an unverified older state hides the damage.
+func (s *session) refusePushOnFallback() error {
+	if f := s.store.FallbackFromGeneration(); f > 0 {
+		return fmt.Errorf(
+			"the newest manifest generation %d is unreadable and an older state is being served — run gitcoffer fsck on the vault; refusing to push onto an unverified state", f)
+	}
 	return nil
 }
 
@@ -397,6 +417,9 @@ func (s *session) applyPush(specs []string) (err error) {
 		return err
 	}
 	if err := s.openStore(); err != nil {
+		return err
+	}
+	if err := s.refusePushOnFallback(); err != nil {
 		return err
 	}
 	started := time.Now()
