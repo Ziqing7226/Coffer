@@ -29,7 +29,7 @@
 - `gitcoffer doctor <vault>` — environment and vault health check (git
   version, helper discoverability, meta shape, key-file presence,
   filesystem characteristics, leftover state).
-- `gitcoffer gc --dry-run` — report what would be reclaimed without
+- `gitcoffer gc` — report what would be reclaimed without deleting
   deleting.
 - Pushes from Git-LFS-configured repositories warn that LFS content is
   not part of the vault.

@@ -144,7 +144,7 @@ unchanged. The on-disk format is specified and frozen in
 | `gitcoffer key add <dir> [-keyfile <path>]` | add a passphrase slot, optionally requiring a key file as a second factor |
 | `gitcoffer key remove <dir> <id>` | remove a key slot (never the last one) |
 | `gitcoffer key list <dir>` | list key slots (no passphrase needed) |
-| `gitcoffer gc [--dry-run] <dir>` | remove orphaned objects, temp files, old manifest generations (`--dry-run` reports only) |
+| `gitcoffer gc [--prune] <dir>` | report orphaned objects, temp files, old generations — `--prune` actually removes them |
 | `gitcoffer fsck <dir>` | verify every structure of the vault |
 | `gitcoffer doctor <dir>` | check the environment and the vault, and report |
 | `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle |
