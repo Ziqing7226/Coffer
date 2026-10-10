@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (toward 1.0.0)
+## 1.0.0 (2026-10-10)
 
 - CLI shape finalized before 1.0.0: `gitcoffer gc` is report-only by
   default and deletion requires `--prune` (the `--dry-run` flag is
@@ -39,6 +39,13 @@
   `gitcoffer status` warns when the newest manifest generation is
   unreadable and an older one is being served.
 
+- Cross-platform robustness gate passed: the full functional checklist
+  ran twice independently on real Windows hardware and on Linux against
+  the release-candidate binaries, including cross-system relay on one
+  vault.
+- doctor's temp-file scan covers the vault root (interrupted manifest
+  writes), matching what gc sweeps — found in cross-platform field
+  testing.
 - Release trust chain: archives are built with the pinned toolchain
   (CGO disabled, trimpath), checksummed, the checksums signed keylessly
   (Sigstore OIDC via cosign — no stored secrets), an SBOM (spdx-json)

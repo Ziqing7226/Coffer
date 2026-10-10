@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="version 1.0.0-pre" src="https://img.shields.io/badge/version-1.0.0--pre-blue">
+  <img alt="version 1.0.0" src="https://img.shields.io/badge/version-1.0.0-blue">
   &nbsp;
   <img alt="platforms" src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-6e7681">
   &nbsp;
@@ -31,10 +31,9 @@ random-looking files; with the passphrase, the complete repository — every
 branch, tag, and commit — is reconstructed from the vault alone.
 
 Vault format v1 is frozen and pinned by published
-[test vectors](docs/test-vectors.json). This is the **1.0.0-pre** release:
-fully functional and tested — including crash, corruption, and
-real-external-media batteries — with packaging-store submissions and final
-polish to come in 1.0.0.
+[test vectors](docs/test-vectors.json). This is the stable **1.0.0** release:
+fully functional and tested — including crash, corruption, cross-system
+relay, and real-external-media batteries.
 
 ## Why
 
@@ -78,7 +77,7 @@ the helper through `PATH`; no administrator rights needed). Verify:
 
 ```console
 $ gitcoffer version
-gitcoffer v1.0.0-rc.1
+gitcoffer v1.0.0
 ```
 
 The version line is self-describing: release archives print the
@@ -100,12 +99,12 @@ completion, run `gitcoffer completion bash` (also `zsh`, `fish`,
 Or build from source with Go ≥ 1.27:
 
 ```console
-$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0-pre
-$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0-pre
+$ go install github.com/Ziqing7226/GitCoffer/cmd/gitcoffer@v1.0.0
+$ go install github.com/Ziqing7226/GitCoffer/cmd/git-remote-coffer@v1.0.0
 ```
 
-Package-manager entries (Homebrew, scoop, winget) arrive with the stable
-1.0.0 release.
+Package-manager entries (Homebrew tap, scoop bucket, winget) roll out
+alongside this release.
 
 ## Quick start
 
