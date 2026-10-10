@@ -26,6 +26,11 @@ $ git-remote-coffer          # run with no arguments, prints its usage note;
                              # normally git invokes it for you
 ```
 
+On Windows, the PowerShell installer
+(`scripts/install.ps1`) does the same through `Invoke-WebRequest`. For
+tab completion, load the script for your shell from your profile:
+`gitcoffer completion bash` (also `zsh`, `fish`, `powershell`).
+
 The version line is self-describing: release archives print the
 release version, `go install …@vX` prints that exact version, and a
 repository build reports the commit it was built from.
@@ -148,7 +153,8 @@ unchanged. The on-disk format is specified and frozen in
 | `gitcoffer fsck <dir>` | verify every structure of the vault |
 | `gitcoffer doctor <dir>` | check the environment and the vault, and report |
 | `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle |
-| `gitcoffer version` | print the build version |
+| `gitcoffer version [--json]` | print the build version (optionally as JSON) |
+| `gitcoffer completion <shell>` | print a completion script for bash, zsh, fish, or powershell |
 
 Passphrase prompts read from the terminal (hidden); when stdin is not a
 terminal — scripts, CI — each prompt reads one line, so every subcommand

@@ -14,7 +14,7 @@ docs/test-vectors.json), the `git-remote-coffer` helper (progress
 milestones, writer lock, `--atomic`/`--force-with-lease`, credential
 approval, HEAD fallback for non-main repositories), the `gitcoffer` CLI
 (init, status, key add/remove/list, rekey, gc --prune, fsck, doctor,
-export-bundle, version), CI on
+export-bundle, version, completion), CI on
 Linux, Windows, and macOS, the security review complete, release
 workflow (six platforms) and packaging manifests under `packaging/`,
 and the user guide. Store submissions land with stable 1.0.0.

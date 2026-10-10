@@ -100,6 +100,8 @@ func main() {
 		err = rekeyCmd(os.Args[2:])
 	case "version":
 		err = versionCmd(os.Args[2:])
+	case "completion":
+		err = completionCmd(os.Args[2:])
 	case "key":
 		if len(os.Args) < 3 {
 			usage()
@@ -177,6 +179,8 @@ func usage() {
   gitcoffer doctor <vault-directory>          check the environment and the vault, and report
   gitcoffer export-bundle <vault-dir> <file>  export the vault as a plain git bundle
   gitcoffer version                           print the build version
+  gitcoffer completion <bash|zsh|fish|powershell>
+                                              print a shell completion script
 `)
 }
 

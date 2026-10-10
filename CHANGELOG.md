@@ -5,7 +5,10 @@
 - CLI shape finalized before 1.0.0: `gitcoffer gc` is report-only by
   default and deletion requires `--prune` (the `--dry-run` flag is
   gone — the default IS the dry run). `gitcoffer version --json`
-  serves structured consumers.
+  serves structured consumers, and `gitcoffer completion` emits
+  scripts for bash, zsh, fish, and powershell. Installers
+  (`scripts/install.sh`, `scripts/install.ps1`) download, verify, and
+  install release binaries in one step.
 
 - Server-side non-fast-forward protection: a vault branch only moves to
   a descendant of its current tip unless the push is forced — unrelated

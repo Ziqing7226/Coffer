@@ -85,6 +85,18 @@ The version line is self-describing: release archives print the
 release version, `go install …@vX` prints that exact version, and a
 build from the repository reports the commit it was built from.
 
+Or install with the script (downloads the latest release, verifies the
+checksum, installs into `~/.local/bin` — see the script header for
+options):
+
+```console
+$ curl -fsSL https://raw.githubusercontent.com/Ziqing7226/GitCoffer/main/scripts/install.sh | sh
+```
+
+Windows PowerShell has the equivalent `scripts/install.ps1`. For shell
+completion, run `gitcoffer completion bash` (also `zsh`, `fish`,
+`powershell`) and load its output from your shell profile.
+
 Or build from source with Go ≥ 1.27:
 
 ```console
@@ -140,7 +152,8 @@ $ git remote add origin usb://myproject.coffer
 | `gitcoffer fsck <dir>` | verify every structure of the vault |
 | `gitcoffer doctor <dir>` | check the environment and the vault |
 | `gitcoffer export-bundle <dir> <file>` | export the vault as a plain git bundle — the exit path |
-| `gitcoffer version` | print the build version |
+| `gitcoffer version [--json]` | print the build version (optionally as JSON) |
+| `gitcoffer completion <bash|zsh|fish|powershell>` | print a shell completion script |
 
 Full walkthrough — keys and recovery, maintenance, troubleshooting:
 [docs/user-guide.md](docs/user-guide.md).

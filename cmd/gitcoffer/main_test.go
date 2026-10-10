@@ -15,7 +15,7 @@ import (
 // implementedCommands is the source of truth: every gitcoffer subcommand.
 var implementedCommands = []string{
 	"init", "status", "rekey", "key", "gc", "fsck", "doctor",
-	"export-bundle", "version",
+	"export-bundle", "version", "completion",
 }
 
 func TestUsageListsEveryCommand(t *testing.T) {
@@ -149,5 +149,55 @@ func TestRenderVersion(t *testing.T) {
 		if got := renderVersion(tc.stamped, tc.mainV, tc.rev, tc.date, tc.dirty); got != tc.want {
 			t.Errorf("%s: renderVersion = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+func captureCompletion(t *testing.T, shell string) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	if err := completionCmd([]string{shell}); err != nil {
+		os.Stdout = old
+		t.Fatalf("completion %s: %v", shell, err)
+	}
+	w.Close()
+	os.Stdout = old
+	var sb strings.Builder
+	buf := make([]byte, 8192)
+	for {
+		n, err := r.Read(buf)
+		sb.Write(buf[:n])
+		if err != nil {
+			break
+		}
+	}
+	return sb.String()
+}
+
+func captureCompletionErr(t *testing.T, shell string) (string, error) {
+	t.Helper()
+	var sb strings.Builder
+	err := completionCmd([]string{shell})
+	return sb.String(), err
+}
+
+func TestCompletionCoversEveryCommand(t *testing.T) {
+	for shell, want := range map[string]string{
+		"bash":       "init status rekey key gc fsck doctor export-bundle version",
+		"zsh":        "'init:create",
+		"fish":       "complete -c gitcoffer -n '__fish_use_subcommand' -a init",
+		"powershell": "'init','status'",
+	} {
+		out := captureCompletion(t, shell)
+		if !strings.Contains(out, want) {
+			t.Errorf("%s completion lacks %q:\n%s", shell, want, out)
+		}
+	}
+	if _, err := captureCompletionErr(t, "tcsh"); err == nil {
+		t.Error("unknown shell accepted")
 	}
 }
