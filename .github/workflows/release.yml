@@ -15,7 +15,12 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}   # with v; steps derive the bare form
     steps:
+      - name: Set version without the leading v
+        shell: bash
+        run: echo "BARE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
@@ -26,7 +31,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="$BARE_VERSION"
           mkdir -p dist
           for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64 darwin/amd64 darwin/arm64; do
             os="${target%/*}"; arch="${target#*/}"
@@ -81,17 +86,15 @@ jobs:
         uses: anchore/sbom-action@v0
         with:
           format: spdx-json
-          path: dist/gitcoffer-${{ github.ref_name }}-linux-amd64
-          artifact-name: gitcoffer-${{ github.ref_name }}-sbom.spdx.json
+          path: dist/gitcoffer-${{ env.BARE_VERSION }}-linux-amd64
+          artifact-name: gitcoffer-${{ env.BARE_VERSION }}-sbom.spdx.json
+          output-file: dist/gitcoffer-${{ env.BARE_VERSION }}-sbom.spdx.json
       - name: Attest build provenance for every archive
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             dist/*.tar.gz
             dist/*.zip
-      - name: Move the SBOM next to the archives
-        shell: bash
-        run: mv dist/gitcoffer-${GITHUB_REF_NAME}-sbom.spdx.json dist/ 2>/dev/null || true
       - name: Publish the GitHub release
         shell: bash
         env:
